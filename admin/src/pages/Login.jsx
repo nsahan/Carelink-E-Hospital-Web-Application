@@ -3,6 +3,7 @@ import { assets } from '../assets/assets';
 import { AdminContext } from '../context/AdminContext';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom';
 
 const Login = () => {
   const [state, setState] = useState('Admin');
@@ -11,6 +12,7 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   
   const { setAtoken, backendUrl } = useContext(AdminContext);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,7 +29,7 @@ const Login = () => {
           setAtoken(response.data.token);
           localStorage.setItem('atoken', response.data.token);
           toast.success('Admin login successful!');
-          window.location.href = '/admin/dashboard';
+          navigate('/admin/dashboard');
         } else {
           toast.error(response.data.message || 'Login failed');
         }
@@ -38,11 +40,12 @@ const Login = () => {
         });
         
         if (data.token) {
-          setAtoken(data.token);
           localStorage.setItem('dtoken', data.token);
           localStorage.setItem('doctorInfo', JSON.stringify(data.doctor));
           toast.success('Doctor login successful!');
-          window.location.href = '/doctor/dashboard';
+          setTimeout(() => {
+            navigate('/doctor/dashboard', { replace: true });
+          }, 1000); // Add small delay to allow toast to show
         } else {
           toast.error(data.message || 'Login failed');
         }

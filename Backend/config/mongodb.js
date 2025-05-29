@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const connectdb = async () => {
   mongoose.connection.on("connected", () => {
-    console.log("Mongoose is connected!!!");
+    console.log("MongoDB is connected!!!");
   });
   await mongoose.connect(`${process.env.MONGODB_URI}/carelink`);
 };

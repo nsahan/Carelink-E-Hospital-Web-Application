@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { assets } from "../assets/assets";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
-import { Menu, X, ChevronDown, User, Calendar, LogOut, Search, Home, Users, HelpCircle, Phone, ShoppingBag } from "lucide-react";
+import { Menu, X, ChevronDown, User, Calendar, LogOut, Search, Home, Users, HelpCircle, Phone, ShoppingBag, MessageCircle, Heart } from "lucide-react";
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -9,9 +9,9 @@ const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [token, setToken] = useState(true); // Simulate logged-in state
+  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')));
   
-  // Handle scroll effect for navbar
   useEffect(() => {
     const handleScroll = () => {
       if (window.scrollY > 10) {
@@ -25,10 +25,22 @@ const Navbar = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
   
-  // Close mobile menu when location changes
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [location]);
+
+  useEffect(() => {
+    const checkAuth = () => {
+      const storedToken = localStorage.getItem('token');
+      const storedUser = JSON.parse(localStorage.getItem('user'));
+      setToken(storedToken);
+      setUser(storedUser);
+    };
+
+    window.addEventListener('storage', checkAuth);
+    checkAuth();
+    return () => window.removeEventListener('storage', checkAuth);
+  }, []);
 
   const navigationLinks = [
     { path: "/", label: "Home", icon: <Home size={18} /> },
@@ -37,6 +49,11 @@ const Navbar = () => {
     { path: "/about", label: "About", icon: <HelpCircle size={18} /> },
     { path: "/contact", label: "Contact", icon: <Phone size={18} /> },
     { path: "/pharmacy", label: "Pharmacy", icon: <ShoppingBag size={18} /> },
+    { 
+      path: "/stress-relief", 
+      label: "Stress Relief", 
+      icon: <Heart size={18} /> 
+    },
   ];
 
   const toggleUserMenu = () => {
@@ -44,8 +61,12 @@ const Navbar = () => {
   };
 
   const handleLogout = () => {
-    setToken(false);
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setToken(null);
+    setUser(null);
     setUserMenuOpen(false);
+    navigate('/login');
   };
 
   return (
@@ -102,8 +123,8 @@ const Navbar = () => {
               >
                 <img 
                   className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm" 
-                  src={assets.profile_pic} 
-                  alt="Profile" 
+                  src={user?.image || assets.profile} // Use user image if available, fallback to default
+                  alt={user?.name || "Profile"} 
                 />
                 <ChevronDown size={16} className={`text-gray-600 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
               </button>
@@ -112,8 +133,8 @@ const Navbar = () => {
               {userMenuOpen && (
                 <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
                   <div className="py-2 px-3 border-b border-gray-100">
-                    <p className="text-sm font-medium text-gray-900">John Doe</p>
-                    <p className="text-xs text-gray-500 truncate">john.doe@example.com</p>
+                    <p className="text-sm font-medium text-gray-900">{user?.name || 'User'}</p>
+                    <p className="text-xs text-gray-500 truncate">{user?.email || ''}</p>
                   </div>
                   <div className="py-1">
                     <button 
@@ -124,11 +145,25 @@ const Navbar = () => {
                       My Profile
                     </button>
                     <button 
+                      onClick={() => { navigate('/chat'); setUserMenuOpen(false); }}
+                      className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50"
+                    >
+                      <MessageCircle size={16} className="mr-3 text-blue-600" />
+                      Chat
+                    </button>
+                    <button 
                       onClick={() => { navigate('/appointment'); setUserMenuOpen(false); }}
                       className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50"
                     >
                       <Calendar size={16} className="mr-3 text-blue-600" />
                       My Appointments
+                    </button>
+                    <button 
+                      onClick={() => { navigate('/orders'); setUserMenuOpen(false); }}
+                      className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50"
+                    >
+                      <Calendar size={16} className="mr-3 text-blue-600" />
+                      My Orders
                     </button>
                   </div>
                   <div className="py-1 border-t border-gray-100">
@@ -207,6 +242,17 @@ const Navbar = () => {
           <div className="p-4 border-t border-gray-200">
             {token ? (
               <div className="space-y-2">
+                <div className="flex items-center px-4 py-2">
+                  <img 
+                    className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm" 
+                    src={user?.image || assets.profile}
+                    alt={user?.name || "Profile"} 
+                  />
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-gray-900">{user?.name || 'User'}</p>
+                    <p className="text-xs text-gray-500">{user?.email || ''}</p>
+                  </div>
+                </div>
                 <button 
                   onClick={() => navigate('/profile')}
                   className="flex items-center w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100 rounded-md"
@@ -220,6 +266,13 @@ const Navbar = () => {
                 >
                   <Calendar size={18} className="mr-3 text-blue-600" />
                   My Appointments
+                </button>
+                <button 
+                  onClick={() => navigate('/chat')}
+                  className="flex items-center w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100 rounded-md"
+                >
+                  <MessageCircle size={18} className="mr-3 text-blue-600" />
+                  Chat
                 </button>
                 <button 
                   onClick={handleLogout}

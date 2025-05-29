@@ -22,15 +22,12 @@ const userSchema = new mongoose.Schema(
    
     address: {
       type: String,
-      default:{},
     },
     gender:{
         type: String,
-        default: "Not Selected",
     },
     dob:{
         type: Date,
-        default: "Not selected",
     },
     phone:{
         type: Number,

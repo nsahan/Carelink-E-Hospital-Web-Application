@@ -1,7 +1,32 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Heart, AlertCircle, Brain, Pill, Globe, Clock, Star, Award, Shield, Users } from 'lucide-react';
+import axios from 'axios';
 
 const About = () => {
+  const [content, setContent] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchContent = async () => {
+      try {
+        const response = await axios.get('http://localhost:9000/api/about/content');
+        if (response.data.success) {
+          setContent(response.data.data);
+        }
+      } catch (error) {
+        console.error('Error fetching about content:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchContent();
+  }, []);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
   return (
     <div className="bg-gradient-to-b from-white to-blue-50">
       {/* Hero Section */}
@@ -10,11 +35,10 @@ const About = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="text-center mb-16">
             <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Revolutionizing Healthcare with <span className="text-blue-600">CARELINK</span>
+              {content?.heroTitle || 'Revolutionizing Healthcare with CARELINK'}
             </h1>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Your all-in-one healthcare companion - bringing medical services, emergency care, 
-              AI assistance, and pharmacy needs directly to your fingertips.
+              {content?.heroSubtitle}
             </p>
           </div>
           
@@ -167,8 +191,6 @@ const About = () => {
         </div>
       </section>
 
-      
-
       {/* Values Section */}
       <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -218,5 +240,4 @@ const About = () => {
   );
 };
 
-     
 export default About;

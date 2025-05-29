@@ -1,14 +1,14 @@
 import React, { useState } from 'react'
 import { assets } from '../assets/assets'
 import { Link, useLocation } from 'react-router-dom'
-import { FaUserMd, FaCalendarAlt, FaPills, FaChartLine, FaCog, FaClipboardList, FaUserInjured, FaFileInvoiceDollar } from 'react-icons/fa'
+import { FaUserMd, FaCalendarAlt, FaPills, FaChartLine, FaCog, FaClipboardList, FaUserInjured, FaFileInvoiceDollar, FaBook, FaAngleLeft, FaAngleRight, FaInfoCircle } from 'react-icons/fa'
 
 const Sidebar = () => {
-    const [sidebar, setSidebar] = useState(false);
+    const [expanded, setExpanded] = useState(true);
     const location = useLocation();
 
     const toggleSidebar = () => {
-        setSidebar(!sidebar);
+        setExpanded(!expanded);
     };
 
     const menuItems = [
@@ -17,40 +17,54 @@ const Sidebar = () => {
         { title: 'Add Doctor', icon: <FaUserMd />, path: '/admin/add-doctor' },
         { title: 'Appointments', icon: <FaCalendarAlt />, path: '/admin/appointments' },
         { title: 'Patients', icon: <FaUserInjured />, path: '/admin/patients' },
-        { title: 'Medicine Inventory', icon: <FaPills />, path: '/admin/medicines' },
         { title: 'Add Medicine', icon: <FaPills />, path: '/admin/add-medicine' },
+        { title: 'Medical Terms', icon: <FaBook />, path: '/admin/medical-terms' },
         { title: 'Prescriptions', icon: <FaClipboardList />, path: '/admin/prescriptions' },
         { title: 'Billing', icon: <FaFileInvoiceDollar />, path: '/admin/billing' },
         { title: 'Settings', icon: <FaCog />, path: '/admin/settings' },
+        { title: 'Edit About', icon: <FaInfoCircle />, path: '/admin/edit-about' },
     ];
 
     return (
-        <div className={`h-screen fixed left-0 top-0 z-40 ${sidebar ? 'w-64' : 'w-20'} bg-gradient-to-b from-blue-800 to-blue-600 text-white transition-all duration-300 ease-in-out shadow-xl`}>
-            <button onClick={toggleSidebar} className="absolute -right-3 top-5 bg-blue-600 p-2 rounded-full shadow-lg hover:bg-blue-700 transition-colors">
-                {sidebar ? '←' : '→'}
+        <div className={`fixed left-0 top-0 h-screen z-40 transition-all duration-300 ease-in-out 
+            ${expanded ? 'w-64' : 'w-20'} 
+            bg-gradient-to-b from-blue-800 to-blue-600 text-white shadow-xl`}
+        >
+            {/* Toggle Button */}
+            <button 
+                onClick={toggleSidebar}
+                className="absolute -right-3 top-[76px] bg-blue-600 p-1.5 rounded-full shadow-lg hover:bg-blue-700 transition-colors"
+                style={{ transform: 'translateY(-50%)' }}
+            >
+                {expanded ? <FaAngleLeft size={16} /> : <FaAngleRight size={16} />}
             </button>
             
-            <div className="p-4 mt-14">
-                <nav className="space-y-2">
-                    {menuItems.map((item, index) => (
-                        <Link 
-                            key={index} 
-                            to={item.path}
-                            className={`flex items-center gap-4 px-4 py-3 rounded-lg transition-colors mb-1
-                                ${location.pathname === item.path 
-                                    ? 'bg-white/10 shadow-lg' 
-                                    : 'hover:bg-white/5'}`}
-                        >
-                            <span className={`text-xl ${location.pathname === item.path ? 'text-white' : 'text-gray-300'}`}>
-                                {item.icon}
-                            </span>
-                            <span className={`${sidebar ? 'block' : 'hidden'} whitespace-nowrap font-medium`}>
-                                {item.title}
-                            </span>
-                        </Link>
-                    ))}
-                </nav>
+            {/* Logo */}
+            <div className={`p-4 flex items-center ${expanded ? 'justify-start' : 'justify-center'}`}>
+                <img src={assets.carelink} alt="Logo" className="h-8 w-auto" />
             </div>
+            
+            {/* Navigation Menu */}
+            <nav className="mt-8 px-4">
+                {menuItems.map((item, index) => (
+                    <Link 
+                        key={index} 
+                        to={item.path}
+                        className={`flex items-center gap-4 px-4 py-3 rounded-lg transition-colors mb-1
+                            ${location.pathname === item.path 
+                                ? 'bg-white/10 shadow-lg' 
+                                : 'hover:bg-white/5'}`}
+                    >
+                        <span className={`text-xl ${location.pathname === item.path ? 'text-white' : 'text-gray-300'}`}>
+                            {item.icon}
+                        </span>
+                        <span className={`whitespace-nowrap font-medium transition-all duration-300
+                            ${expanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 hidden'}`}>
+                            {item.title}
+                        </span>
+                    </Link>
+                ))}
+            </nav>
         </div>
     )
 }

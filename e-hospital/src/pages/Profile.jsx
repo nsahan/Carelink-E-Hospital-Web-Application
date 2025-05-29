@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { assets } from '../assets/assets';
-import { Edit2, Save } from 'lucide-react';
+import { Edit2, Save, Camera } from 'lucide-react';
 
 const Profile = () => {
+  const navigate = useNavigate();
   const [userData, setUserData] = useState({
-    name: 'Nisura Sahan',
-    image: assets.profile_pic,
-    email: 'example@gmail.com',
+    name: 'Sahan Jayarathna',
+    image: assets.profile,
+    email: 'nisurasahan@gmail.com',
     phone: '+94769034458',
     address: 'Kurunegala, Sri lanka',
     gender: 'Male',
@@ -16,11 +19,147 @@ const Profile = () => {
     height: '5.6',
   });
 
-  const [editMode, setEditMode] = useState(false);
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const user = JSON.parse(localStorage.getItem('user'));
 
-  const handleSave = () => {
-    // Here you would typically save the data to a backend
-    setEditMode(false);
+    if (!token || !user) {
+      navigate('/login');
+      return;
+    }
+
+    setUserData(prevData => ({
+      ...prevData,
+      name: user.name,
+      email: user.email,
+      image: user.image || assets.profile,
+    }));
+  }, [navigate]);
+
+  const [editMode, setEditMode] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
+  const fileInputRef = React.useRef();
+  const [imageLoading, setImageLoading] = useState(false);
+  const [imageError, setImageError] = useState(null);
+
+  const handleImageClick = () => {
+    fileInputRef.current.click();
+  };
+
+  const validateImage = (file) => {
+    const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/jpg'];
+
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      throw new Error('Please upload a JPG or PNG image');
+    }
+    if (file.size > MAX_SIZE) {
+      throw new Error('Image size should be less than 5MB');
+    }
+  };
+
+  const handleImageUpload = async (file, retryCount = 0) => {
+    const MAX_RETRIES = 3;
+    setImageLoading(true);
+    setImageError(null);
+
+    try {
+      validateImage(file);
+      const formData = new FormData();
+      formData.append('image', file);
+      const token = localStorage.getItem('token');
+
+      const response = await axios.post(
+        'http://localhost:9000/api/users/update-image',
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+          },
+          timeout: 15000, // 15 second timeout
+        }
+      );
+
+      if (response.data.success) {
+        setUserData(prev => ({ ...prev, image: response.data.data.image }));
+        const user = JSON.parse(localStorage.getItem('user'));
+        localStorage.setItem('user', JSON.stringify({ ...user, image: response.data.data.image }));
+        setMessage({ type: 'success', text: 'Profile image updated successfully!' });
+      }
+    } catch (error) {
+      if (error.response?.status === 500) {
+        const errorMessage = 'Server error. Please try again later.';
+        if (retryCount < MAX_RETRIES) {
+          // Wait longer between retries on server errors
+          setTimeout(() => handleImageUpload(file, retryCount + 1), 2000 * (retryCount + 1));
+          return;
+        }
+        setImageError(errorMessage);
+        setMessage({ type: 'error', text: errorMessage });
+      } else if (error.code === 'ECONNRESET' || error.code === 'ECONNABORTED') {
+        if (retryCount < MAX_RETRIES) {
+          setTimeout(() => handleImageUpload(file, retryCount + 1), 1000);
+          return;
+        }
+        setImageError('Connection failed. Please check your internet connection.');
+        setMessage({ type: 'error', text: 'Failed to upload image. Please check your connection.' });
+      } else if (error.response?.status === 413) {
+        setImageError('Image size too large');
+        setMessage({ type: 'error', text: 'Image size exceeds server limit' });
+      } else if (error.message.includes('validateImage')) {
+        setImageError(error.message);
+        setMessage({ type: 'error', text: error.message });
+      } else {
+        setImageError('Failed to upload image');
+        setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to upload image' });
+      }
+    } finally {
+      setImageLoading(false);
+    }
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    handleImageUpload(file);
+  };
+
+  const handleSave = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.put(
+        'http://localhost:9000/api/users/update',
+        {
+          name: userData.name,
+          phone: userData.phone,
+          address: userData.address,
+          gender: userData.gender,
+          dob: userData.dob,
+          bloodGroup: userData.bloodGroup,
+          weight: userData.weight,
+          height: userData.height,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.success) {
+        const user = JSON.parse(localStorage.getItem('user'));
+        localStorage.setItem('user', JSON.stringify({ ...user, ...response.data.data }));
+        setMessage({ type: 'success', text: 'Profile updated successfully!' });
+      }
+      setEditMode(false);
+    } catch (error) {
+      setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to update profile' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const FormField = ({ label, value, editField, type = 'text' }) => (
@@ -36,13 +175,46 @@ const Profile = () => {
 
   return (
     <div className="bg-white rounded-lg shadow-md max-w-2xl mx-auto p-6">
+      {message.text && (
+        <div className={`mb-4 p-3 rounded ${
+          message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+        }`}>
+          {message.text}
+        </div>
+      )}
       <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-6">
-        <div className="relative">
+        <div className="relative group">
           <img 
             src={userData.image} 
             alt="Profile" 
-            className="w-32 h-32 rounded-full object-cover border-4 border-gray-100 shadow"
+            className={`w-32 h-32 rounded-full object-cover border-4 ${
+              imageLoading ? 'opacity-50' : ''
+            } border-gray-100 shadow cursor-pointer`}
+            onClick={handleImageClick}
           />
+          <div 
+            className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+            onClick={handleImageClick}
+          >
+            {imageLoading ? (
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white" />
+            ) : (
+              <Camera className="text-white" size={24} />
+            )}
+          </div>
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            accept="image/*"
+            onChange={handleImageChange}
+            disabled={imageLoading}
+          />
+          {imageError && (
+            <div className="absolute -bottom-8 left-0 right-0 text-center text-red-500 text-sm">
+              {imageError}
+            </div>
+          )}
         </div>
         <div className="flex-1 text-center md:text-left">
           {editMode ? (

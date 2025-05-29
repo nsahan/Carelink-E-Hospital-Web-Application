@@ -1,49 +1,65 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { AppContext } from '../context/AppContext';
+import axios from 'axios';
 
 const Appo = () => {
   const { docId } = useParams();
   const navigate = useNavigate();
-  const { doctors = [] } = useContext(AppContext) || {};
 
   const [doctor, setDoctor] = useState(null);
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [bookingSuccess, setBookingSuccess] = useState(false);
-
+  const [relatedDoctors, setRelatedDoctors] = useState([]);
+  const [availableSlots, setAvailableSlots] = useState(0);
+  
   const fetchInfo = async () => {
-    setIsLoading(true);
-    
-    if (!doctors || !Array.isArray(doctors) || doctors.length === 0) {
-      console.log('Doctors data is not available yet');
+    try {
+      setIsLoading(true); 
+      const response = await axios.get(`http://localhost:9000/api/doctor/${docId}`);
+      
+      if (response.data) {
+        setDoctor(response.data);
+        
+        try {
+          const relatedResponse = await axios.get(
+            `http://localhost:9000/api/doctor/related/${response.data.specialty}`
+          );
+          if (relatedResponse.data) {
+            const filteredRelated = relatedResponse.data.filter(doc => doc._id !== docId);
+            setRelatedDoctors(filteredRelated.slice(0, 3));
+          }
+        } catch (relatedError) {
+          console.error('Error fetching related doctors:', relatedError);
+          setRelatedDoctors([]);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching doctor:', error?.response?.data || error.message);
+      setDoctor(null);
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    const foundDoctor = doctors.find((doc) => doc._id === docId);
-    if (foundDoctor) {
-      setDoctor(foundDoctor);
-    } else {
-      console.log('Doctor not found');
-    }
-
-    // Reset selections when doctor changes
-    setSelectedDate('');
-    setSelectedTime('');
-    setBookingSuccess(false);
-    setIsLoading(false);
   };
 
   useEffect(() => {
     fetchInfo();
-  }, [docId, doctors]);
- 
+  }, [docId]);
+
+  useEffect(() => {
+    if (doctor) {
+      setAvailableSlots(doctor.available);
+    }
+  }, [doctor]);
+
   // Generate next 10 available dates (excluding weekends)
   const generateAvailableDates = () => {
     const dates = [];
     const today = new Date();
+    
+    // Start with today
+    dates.push(today.toISOString().split('T')[0]);
     
     let daysToAdd = 1;
     while (dates.length < 10) {
@@ -68,24 +84,41 @@ const Appo = () => {
   const morningSlots = ['09:00 AM', '10:00 AM', '11:00 AM'];
   const afternoonSlots = ['01:00 PM', '02:30 PM', '04:00 PM', '05:30 PM'];
 
-  // Filter related doctors based on the same speciality
-  const relatedDoctors = doctor ? doctors.filter(
-    (doc) => doc.speciality === doctor.speciality && docId !== doc._id
-  ).slice(0, 3) : [];
-
-  const handleBooking = () => {
+  const handleBooking = async () => {
     if (!selectedDate || !selectedTime) {
       alert('Please select both date and time to book your appointment');
       return;
     }
 
-    // Simulate booking process
-    setIsLoading(true);
-    
-    setTimeout(() => {
-      setBookingSuccess(true);
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('Please login to book an appointment');
+      navigate('/login');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const response = await axios.post('http://localhost:9000/api/appointments', {
+        doctorId: docId,
+        date: selectedDate,
+        time: selectedTime
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (response.data) {
+        setAvailableSlots(response.data.availableSlots);
+        setBookingSuccess(true);
+      }
+    } catch (error) {
+      console.error('Booking error:', error);
+      alert(error.response?.data?.message || 'Error booking appointment');
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   if (isLoading) {
@@ -141,6 +174,37 @@ const Appo = () => {
     );
   }
 
+  const renderDateSelection = () => (
+    <div className="mb-6">
+      <label className="block text-gray-700 font-medium mb-2">Select Date</label>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+        {availableDates.map((date, index) => {
+          const dateObj = new Date(date);
+          const isToday = dateObj.toDateString() === new Date().toDateString();
+          const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+          const dayNum = dateObj.getDate();
+          const month = dateObj.toLocaleDateString('en-US', { month: 'short' });
+          
+          return (
+            <div
+              key={index}
+              onClick={() => setSelectedDate(date)}
+              className={`cursor-pointer border rounded-lg p-3 text-center transition duration-200 hover:border-blue-500 
+                ${selectedDate === date ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200'}
+                ${isToday ? 'bg-green-50 border-green-500' : ''}`}
+            >
+              <div className="text-xs font-medium text-gray-500">
+                {isToday ? 'Today' : dayName}
+              </div>
+              <div className="text-lg font-bold">{dayNum}</div>
+              <div className="text-xs">{month}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   return (
     <div className="bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
@@ -177,6 +241,7 @@ const Appo = () => {
                       <div className="text-xs text-gray-500">Education</div>
                       <div className="font-medium">{doctor.degree}</div>
                     </div>
+
                   </div>
                   <div className="flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -191,7 +256,7 @@ const Appo = () => {
                 
                 <div className="mb-6">
                   <div className="text-xs text-gray-500 mb-1">Consultation Fee</div>
-                  <div className="text-2xl font-bold text-blue-600">${doctor.fees}</div>
+                  <div className="text-2xl font-bold text-blue-600">Rs.{doctor.fees}</div>
                 </div>
                 
                 <div className="space-y-3">
@@ -222,35 +287,13 @@ const Appo = () => {
           <div className="lg:col-span-2">
             <div className="bg-white rounded-xl shadow-md p-6">
               <h3 className="text-xl font-bold text-gray-800 mb-6">Book Your Appointment</h3>
+
+              <p className="text-lg text-gray-700 font-medium mb-4">
+  Available Bookings: <span className="text-blue-600 font-semibold">{doctor.available}</span>
+</p>
               
               {/* Date Selection */}
-              <div className="mb-6">
-                <label className="block text-gray-700 font-medium mb-2">Select Date</label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-                  {availableDates.map((date, index) => {
-                    const dateObj = new Date(date);
-                    const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
-                    const dayNum = dateObj.getDate();
-                    const month = dateObj.toLocaleDateString('en-US', { month: 'short' });
-                    
-                    return (
-                      <div
-                        key={index}
-                        onClick={() => setSelectedDate(date)}
-                        className={`cursor-pointer border rounded-lg p-3 text-center transition duration-200 hover:border-blue-500 ${
-                          selectedDate === date 
-                            ? 'border-blue-500 bg-blue-50 text-blue-700' 
-                            : 'border-gray-200'
-                        }`}
-                      >
-                        <div className="text-xs font-medium text-gray-500">{dayName}</div>
-                        <div className="text-lg font-bold">{dayNum}</div>
-                        <div className="text-xs">{month}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              {renderDateSelection()}
               
               {/* Time Selection */}
               {selectedDate && (
@@ -300,9 +343,17 @@ const Appo = () => {
               {/* Booking Button */}  
               <button
                 onClick={handleBooking}
-                className="w-full bg-blue-600 border border-transparent rounded-md shadow-sm py-3 px-4 text-white font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                disabled={availableSlots <= 0}
+                className={`w-full border rounded-md shadow-sm py-3 px-4 text-white font-medium
+                  ${availableSlots > 0 
+                    ? 'bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500' 
+                    : 'bg-gray-400 cursor-not-allowed'}`}
               >
-                {selectedDate && selectedTime ? 'Confirm Booking' : 'Select Date & Time'}
+                {availableSlots <= 0 
+                  ? 'No Appointments Available' 
+                  : selectedDate && selectedTime 
+                    ? 'Confirm Booking' 
+                    : 'Select Date & Time'}
               </button>
             </div>
           </div>
@@ -320,7 +371,7 @@ const Appo = () => {
                     <h3 className="text-lg font-semibold text-gray-800">Dr. {doc.name}</h3>
                     <p className="text-sm text-gray-500 mb-2">{doc.speciality}</p>
                     <button
-                      onClick={() => navigate(`/appoinments/${doc._id}`)}
+                      onClick={() => navigate(`/appointments/${doc._id}`)}
                       className="w-full bg-blue-600 text-white font-medium rounded-lg py-2 hover:bg-blue-700 transition duration-300"
                     >
                       Book Appointment

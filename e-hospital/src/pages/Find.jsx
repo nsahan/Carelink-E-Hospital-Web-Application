@@ -2,11 +2,14 @@ import React, { useState } from 'react';
 import { Search, Filter, Heart, BookOpen, MapPin, Activity, ArrowRight, ChevronDown, X, Scale, Calculator, Clock } from 'lucide-react';
 import Doctors from './Doctors';
 import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
+import axios from 'axios';
 
 const Find = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('diseases');
   const [activeHealthTool, setActiveHealthTool] = useState(null);
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
   
   const categories = [
     { name: 'Common Conditions', count: 124 },
@@ -69,11 +72,64 @@ const Find = () => {
   const handleToolClick = (toolId) => {
     setActiveHealthTool(toolId === activeHealthTool ? null : toolId);
   };
+  
+  const searchDiseases = async (query) => {
+    if (!query.trim()) return;
+    
+    setIsSearching(true);
+    try {
+      const response = await axios.post(
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+        {
+          contents: [{
+            parts: [{
+              text: `As a medical expert, provide information about "${query}" in this format:
+              {
+                "disease": "name of disease",
+                "shortDescription": "brief overview in 1-2 sentences",
+                "symptoms": ["symptom1", "symptom2", "symptom3"],
+                "severity": "mild/moderate/severe",
+                "whenToSeekHelp": "brief guidance",
+                "category": "disease category"
+              }
+              Only provide factual medical information. If the query is not a valid disease, return null.`
+            }]
+          }]
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer AIzaSyA1AT_43Vfydy2zqJFalwV_pbf_Dezsxf0'
+          },
+          params: {
+            key: 'AIzaSyA1AT_43Vfydy2zqJFalwV_pbf_Dezsxf0'  // Add API key as URL parameter
+          }
+        }
+      );
+
+      const result = response.data.candidates[0].content.parts[0].text;
+      try {
+        const parsedResult = JSON.parse(result);
+        if (parsedResult) {
+          setSearchResults([parsedResult]);
+        }
+      } catch (error) {
+        console.error('Failed to parse API response:', error);
+        setSearchResults([]);
+      }
+    } catch (error) {
+      console.error('Search failed:', error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   const renderTabContent = () => {
     switch(activeTab) {
       case 'specialists':
         return <Doctors />;
-      case 'diseases':
+      case 'diseases': 
         return renderDiseasesContent();
       case 'treatments':
         return renderTreatmentsContent();
@@ -83,27 +139,85 @@ const Find = () => {
         return renderDiseasesContent();
     }
   };
+  
+  const renderSearchBox = () => (
+    <div className="relative mx-auto max-w-2xl">
+      <input
+        type="text"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        onKeyPress={(e) => e.key === 'Enter' && searchDiseases(searchQuery)}
+        placeholder="Search for diseases or medical conditions..."
+        className="w-full px-6 py-4 pr-12 rounded-lg shadow-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300"
+      />
+      <button 
+        onClick={() => searchDiseases(searchQuery)}
+        className="absolute right-4 top-1/2 transform -translate-y-1/2 text-blue-600 hover:text-blue-700"
+        disabled={isSearching}
+      >
+        {isSearching ? (
+          <div className="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full" />
+        ) : (
+          <Search size={24} />
+        )}
+      </button>
+    </div>
+  );
+
+  const renderSearchResults = () => {
+    if (!searchResults.length && searchQuery) {
+      return (
+        <div className="mt-8 text-center text-gray-600">
+          No results found for "{searchQuery}"
+        </div>
+      );
+    }
+
+    return searchResults.map((result, index) => (
+      <div key={index} className="mt-8 bg-white rounded-lg shadow-md p-6">
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">{result.disease}</h2>
+        <div className="inline-block px-3 py-1 mb-4 bg-blue-100 text-blue-800 rounded-full text-sm">
+          {result.category}
+        </div>
+        <p className="text-gray-600 mb-4">{result.shortDescription}</p>
+        
+        <div className="mb-4">
+          <h3 className="font-semibold text-gray-700 mb-2">Common Symptoms:</h3>
+          <ul className="list-disc list-inside text-gray-600">
+            {result.symptoms.map((symptom, idx) => (
+              <li key={idx}>{symptom}</li>
+            ))}
+          </ul>
+        </div>
+        
+        <div className="mb-4">
+          <h3 className="font-semibold text-gray-700 mb-2">Severity Level:</h3>
+          <span className={`px-3 py-1 rounded-full text-sm ${
+            result.severity === 'severe' ? 'bg-red-100 text-red-800' :
+            result.severity === 'moderate' ? 'bg-yellow-100 text-yellow-800' :
+            'bg-green-100 text-green-800'
+          }`}>
+            {result.severity}
+          </span>
+        </div>
+        
+        <div>
+          <h3 className="font-semibold text-gray-700 mb-2">When to Seek Help:</h3>
+          <p className="text-gray-600">{result.whenToSeekHelp}</p>
+        </div>
+      </div>
+    ));
+  };
+  
   return (
     <div className="bg-gray-50 min-h-screen">
       {/* Hero Section */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white py-16 px-6">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-4xl font-bold mb-4">Find Health Information</h1>
-          <p className="text-xl mb-8">Discover reliable information about diseases, treatments, and health advice</p>
+          <p className="text-xl mb-8">Discover reliable information about diseases and medical conditions</p>
           
-          {/* Search Box */}
-          <div className="relative mx-auto max-w-2xl">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search diseases, symptoms, or health topics..."
-              className="w-full px-6 py-4 pr-12 rounded-lg shadow-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300"
-            />
-            <button className="absolute right-4 top-1/2 transform -translate-y-1/2 text-blue-600">
-              <Search size={24} />
-            </button>
-          </div>
+          {renderSearchBox()}
           
           {/* Recent Searches */}
           {recentSearches.length > 0 && (
@@ -121,6 +235,7 @@ const Find = () => {
       
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-4 py-12">
+        {renderSearchResults()}
         {/* Tabs */}
         <div className="flex overflow-x-auto border-b border-gray-200 mb-8">
           <button 
@@ -679,7 +794,8 @@ const MedicalDictionary = () => {
   const [results, setResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [activeEntry, setActiveEntry] = useState(null);
-  
+  const [selectedTerm, setSelectedTerm] = useState(null);
+
   // Sample dictionary entries
   const medicalTerms = [
     {
@@ -737,6 +853,58 @@ const MedicalDictionary = () => {
     }
   };
   
+  // Add this new component for detailed view
+  const TermDetail = ({ term, onClose }) => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg w-full max-w-2xl mx-4 p-6">
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800">{term.term}</h2>
+            <span className="inline-block mt-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+              {term.category}
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-full"
+          >
+            <X size={20} />
+          </button>
+        </div>
+        
+        <div className="mt-4">
+          <h3 className="font-medium text-gray-700 mb-2">Definition</h3>
+          <p className="text-gray-600 leading-relaxed">{term.definition}</p>
+        </div>
+        
+        {term.relatedTerms?.length > 0 && (
+          <div className="mt-6">
+            <h3 className="font-medium text-gray-700 mb-2">Related Terms</h3>
+            <div className="flex flex-wrap gap-2">
+              {term.relatedTerms.map((relatedTerm, index) => (
+                <span
+                  key={index}
+                  className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-sm"
+                >
+                  {relatedTerm}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        <div className="mt-6 pt-6 border-t border-gray-200">
+          <button
+            onClick={onClose}
+            className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div>
       <p className="text-gray-600 mb-6">Look up definitions of medical terms, conditions, and healthcare terminology.</p>
@@ -776,10 +944,8 @@ const MedicalDictionary = () => {
               {results.map((entry, index) => (
                 <div 
                   key={index} 
-                  className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                    activeEntry === index ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'
-                  }`}
-                  onClick={() => setActiveEntry(activeEntry === index ? null : index)}
+                  className="p-4 rounded-lg border cursor-pointer hover:border-blue-300"
+                  onClick={() => setSelectedTerm(entry)}
                 >
                   <div className="flex justify-between items-center">
                     <h3 className="font-semibold">{entry.term}</h3>
@@ -835,6 +1001,13 @@ const MedicalDictionary = () => {
             </div>
           ) : null}
         </>
+      )}
+
+      {selectedTerm && (
+        <TermDetail
+          term={selectedTerm}
+          onClose={() => setSelectedTerm(null)}
+        />
       )}
     </div>
   );
@@ -920,3 +1093,4 @@ const NearbyFacilities = () => {
 };
 
 export default Find;
+

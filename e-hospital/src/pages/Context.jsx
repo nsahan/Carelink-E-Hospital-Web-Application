@@ -127,11 +127,11 @@ const Contact = () => {
                 </div>
                 <div className="ml-4">
                   <h4 className="font-medium text-gray-900">Location</h4>
-                  <p className="text-gray-600 mt-1">123 Healthcare Avenue</p>
-                  <p className="text-gray-600">Medical District, CA 90210</p>
+                  <p className="text-gray-600 mt-1">Kurunegala , </p>
+                  <p className="text-gray-600">Sri Lanka</p>
                 </div>
               </div>
-
+              
               <div className="mt-8 pt-6 border-t border-gray-200">
                 <a href="#map" className="group inline-flex items-center text-blue-600 hover:text-blue-800 font-medium">
                   View on map 

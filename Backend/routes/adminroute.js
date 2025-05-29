@@ -11,3 +11,4 @@ router.post("/login", logAdmin);
 router.post("/add-doctor", authAdmin, upload.single("image"), addDoctor);
 
 export default router;
+    

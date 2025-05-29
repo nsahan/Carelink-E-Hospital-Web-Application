@@ -16,11 +16,11 @@ const Header = () => {
                 Healthcare Reimagined
               </span>
           </div>
-          
+             
           <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight">
             Welcome to CareLink
           </h1>
-          
+           
           <h2 className="text-xl md:text-2xl font-light text-blue-100 mt-1">
             Helping You, Always
           </h2>

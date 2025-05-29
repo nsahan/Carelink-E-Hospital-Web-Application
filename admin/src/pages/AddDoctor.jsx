@@ -15,6 +15,21 @@ const AddDoctor = ({ sidebar }) => {
     available: '',
     fees: '',
     address: '',
+    workingHours: {
+      start: '09:00',
+      end: '17:00'
+    },
+    availability: [
+      { day: 'Monday', isAvailable: true, timeSlots: [] },
+      { day: 'Tuesday', isAvailable: true, timeSlots: [] },
+      { day: 'Wednesday', isAvailable: true, timeSlots: [] },
+      { day: 'Thursday', isAvailable: true, timeSlots: [] },
+      { day: 'Friday', isAvailable: true, timeSlots: [] },
+      { day: 'Saturday', isAvailable: false, timeSlots: [] },
+      { day: 'Sunday', isAvailable: false, timeSlots: [] }
+    ],
+    maxAppointmentsPerDay: 20,
+    offDays: []
   });
 
   const [image, setImage] = useState(null);
@@ -50,6 +65,34 @@ const AddDoctor = ({ sidebar }) => {
     } else {
       setImagePreview(null);
     }
+  };
+
+  const handleTimeSlotChange = (dayIndex, slotIndex, field, value) => {
+    const newAvailability = [...formData.availability];
+    if (!newAvailability[dayIndex].timeSlots[slotIndex]) {
+      newAvailability[dayIndex].timeSlots[slotIndex] = {};
+    }
+    newAvailability[dayIndex].timeSlots[slotIndex][field] = value;
+    setFormData({ ...formData, availability: newAvailability });
+  };
+
+  const handleDayAvailability = (dayIndex, isAvailable) => {
+    const newAvailability = [...formData.availability];
+    newAvailability[dayIndex].isAvailable = isAvailable;
+    if (!isAvailable) {
+      newAvailability[dayIndex].timeSlots = [];
+    }
+    setFormData({ ...formData, availability: newAvailability });
+  };
+
+  const addTimeSlot = (dayIndex) => {
+    const newAvailability = [...formData.availability];
+    newAvailability[dayIndex].timeSlots.push({
+      startTime: '',
+      endTime: '',
+      maxPatients: 4
+    });
+    setFormData({ ...formData, availability: newAvailability });
   };
 
   const handleSubmit = async (e) => {
@@ -106,6 +149,21 @@ const AddDoctor = ({ sidebar }) => {
           available: '',
           fees: '',
           address: '',
+          workingHours: {
+            start: '09:00',
+            end: '17:00'
+          },
+          availability: [
+            { day: 'Monday', isAvailable: true, timeSlots: [] },
+            { day: 'Tuesday', isAvailable: true, timeSlots: [] },
+            { day: 'Wednesday', isAvailable: true, timeSlots: [] },
+            { day: 'Thursday', isAvailable: true, timeSlots: [] },
+            { day: 'Friday', isAvailable: true, timeSlots: [] },
+            { day: 'Saturday', isAvailable: false, timeSlots: [] },
+            { day: 'Sunday', isAvailable: false, timeSlots: [] }
+          ],
+          maxAppointmentsPerDay: 20,
+          offDays: []
         });
         setImage(null);
         setImagePreview(null);
@@ -373,6 +431,143 @@ const AddDoctor = ({ sidebar }) => {
       );
     }
   };
+
+  const renderPracticeDetails = () => (
+    <div className="space-y-6">
+      {/* Existing practice details */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label className="block text-gray-700 font-medium mb-2" htmlFor="available">
+            Available Slots <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="number"
+            name="available"
+            value={formData.available}
+            onChange={handleChange}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="10"
+          />
+        </div>
+        <div>
+          <label className="block text-gray-700 font-medium mb-2" htmlFor="fees">
+            Consultation Fee <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="number"
+            name="fees"
+            value={formData.fees}
+            onChange={handleChange}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="100"
+          />
+        </div>
+        <div className="md:col-span-2">
+          <label className="block text-gray-700 font-medium mb-2" htmlFor="address">
+            Clinic Address <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            name="address"
+            value={formData.address}
+            onChange={handleChange}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="123 Medical Center St, City, State, ZIP"
+          />
+        </div>
+        <div className="md:col-span-2">
+          <label className="block text-gray-700 font-medium mb-2" htmlFor="image">
+            Profile Image <span className="text-red-500">*</span>
+          </label>
+          <div className="flex items-center space-x-4">
+            <div className="flex-1">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            {imagePreview && (
+              <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-blue-500">
+                <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Add Schedule Section */}
+      <div className="mt-8 border-t pt-6">
+        <h3 className="text-xl font-medium text-gray-800 mb-4">Consultation Schedule</h3>
+        
+        {formData.availability.map((day, dayIndex) => (
+          <div key={day.day} className="mb-6 bg-gray-50 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  checked={day.isAvailable}
+                  onChange={(e) => handleDayAvailability(dayIndex, e.target.checked)}
+                  className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                />
+                <span className="font-medium text-gray-700">{day.day}</span>
+              </div>
+              {day.isAvailable && (
+                <button
+                  type="button"
+                  onClick={() => addTimeSlot(dayIndex)}
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center"
+                >
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Add Time Slot
+                </button>
+              )}
+            </div>
+
+            {day.isAvailable && (
+              <div className="space-y-3">
+                {day.timeSlots.map((slot, slotIndex) => (
+                  <div key={slotIndex} className="grid grid-cols-3 gap-4 items-center bg-white p-3 rounded-lg">
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">Start Time</label>
+                      <input
+                        type="time"
+                        value={slot.startTime}
+                        onChange={(e) => handleTimeSlotChange(dayIndex, slotIndex, 'startTime', e.target.value)}
+                        className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">End Time</label>
+                      <input
+                        type="time"
+                        value={slot.endTime}
+                        onChange={(e) => handleTimeSlotChange(dayIndex, slotIndex, 'endTime', e.target.value)}
+                        className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">Max Patients</label>
+                      <input
+                        type="number"
+                        value={slot.maxPatients}
+                        onChange={(e) => handleTimeSlotChange(dayIndex, slotIndex, 'maxPatients', e.target.value)}
+                        min="1"
+                        className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   const renderProgressBar = () => {
     return (

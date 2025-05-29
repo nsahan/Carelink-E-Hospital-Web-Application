@@ -1,5 +1,35 @@
 import mongoose from "mongoose";
 
+const timeSlotSchema = new mongoose.Schema({
+  startTime: String,
+  endTime: String,
+  maxPatients: {
+    type: Number,
+    default: 4,
+  },
+});
+
+const availabilitySchema = new mongoose.Schema({
+  day: {
+    type: String,
+    required: true,
+    enum: [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday",
+    ],
+  },
+  isAvailable: {
+    type: Boolean,
+    default: true,
+  },
+  timeSlots: [timeSlotSchema],
+});
+
 const doctorSchema = new mongoose.Schema(
   {
     name: {
@@ -14,7 +44,7 @@ const doctorSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    image: {  
+    image: {
       type: String,
       required: true,
     },
@@ -54,11 +84,19 @@ const doctorSchema = new mongoose.Schema(
       type: Object,
       default: {},
     },
+    availability: [availabilitySchema],
+    workingHours: {
+      start: String,
+      end: String,
+    },
+    offDays: [String],
+    maxAppointmentsPerDay: {
+      type: Number,
+      default: 20,
+    },
   },
   { minimize: false }
 );
 
-const doctorModel =
-  mongoose.models.doctor || mongoose.model("doctor", doctorSchema);
-
-export default doctorModel;
+const Doctor = mongoose.model("Doctor", doctorSchema);
+export default Doctor;

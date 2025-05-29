@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { doctors } from '../assets/assets.js';
+import axios from 'axios';
 
 const Doctors = () => {
   const location = useLocation();
@@ -16,20 +16,39 @@ const Doctors = () => {
   const [isFilterOpen, setIsFilterOpen] = useState(true);
   const [sortOption, setSortOption] = useState('default');
   const [isLoading, setIsLoading] = useState(true);
+  const [doctorsData, setDoctorsData] = useState([]);
+  const [error, setError] = useState(null);
 
-  const specialities = [...new Set(doctors.map((doctor) => doctor.speciality))];
+  // Fetch doctors on component mount
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        setIsLoading(true);
+        const response = await axios.get('http://localhost:9000/api/doctor/all');
+        setDoctorsData(response.data);
+        setError(null);
+      } catch (err) {
+        setError(err.response?.data?.message || 'Failed to fetch doctors');
+        console.error('Error fetching doctors:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDoctors();
+  }, []);
 
   useEffect(() => {
     setIsLoading(true);
     
     // Simulate loading for better UX
     const timer = setTimeout(() => {
-      let filtered = [...doctors];
+      let filtered = [...doctorsData];
       
       // Apply specialty filter
       if (selectedSpecialities.length > 0) {
         filtered = filtered.filter((doctor) => 
-          selectedSpecialities.includes(doctor.speciality)
+          selectedSpecialities.includes(doctor.specialty)
         );
       }
       
@@ -38,7 +57,7 @@ const Doctors = () => {
         const query = searchQuery.toLowerCase();
         filtered = filtered.filter((doctor) => 
           doctor.name.toLowerCase().includes(query) || 
-          doctor.speciality.toLowerCase().includes(query) ||
+          doctor.specialty?.toLowerCase().includes(query) ||
           doctor.degree?.toLowerCase().includes(query)
         );
       }
@@ -58,7 +77,6 @@ const Doctors = () => {
           filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
           break;
         default:
-          // Default sorting by name
           filtered.sort((a, b) => a.name.localeCompare(b.name));
       }
       
@@ -67,7 +85,10 @@ const Doctors = () => {
     }, 300);
     
     return () => clearTimeout(timer);
-  }, [selectedSpecialities, searchQuery, sortOption]);
+  }, [selectedSpecialities, searchQuery, sortOption, doctorsData]);
+
+  // Get unique specialties from actual data
+  const specialities = [...new Set(doctorsData.map((doctor) => doctor.specialty))];
 
   const handleFilterChange = (speciality) => {
     setSelectedSpecialities((prev) =>
@@ -284,13 +305,13 @@ const Doctors = () => {
                 >
                   <div className="relative">
                     <img
-                      src={doctor.image}
+                      src={doctor.image || 'https://via.placeholder.com/300x200'}
                       alt={doctor.name}
                       className="w-full h-48 object-cover"
                       loading="lazy"
                     />
                     <div className="absolute top-4 right-4 bg-blue-600 text-white py-1 px-3 rounded-full text-sm font-medium shadow-md">
-                      ${doctor.fees}
+                      Rs.{doctor.fees}
                     </div>
                     {doctor.available && (
                       <div className="absolute top-4 left-4 bg-green-100 text-green-800 py-1 px-3 rounded-full text-xs font-medium flex items-center">
@@ -304,7 +325,7 @@ const Doctors = () => {
                     <div className="flex justify-between items-start mb-2">
                       <h3 className="text-xl font-bold text-gray-800 hover:text-blue-600 transition-colors duration-200">{doctor.name}</h3>
                       <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">
-                        {doctor.speciality}
+                        {doctor.specialty}
                       </span>
                     </div>
                     
