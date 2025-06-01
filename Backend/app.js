@@ -3,21 +3,18 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { v2 as cloudinary } from "cloudinary";
 import mongoose from "mongoose";
-import userRoutes from "./routes/userRoutes.js";
-import doctorRoutes from "./routes/doctorRoutes.js";
-import medicineRoutes from "./routes/medicineRoutes.js";
+
 import orderRoutes from "./routes/orderRoutes.js";
-import emergencyRoutes from "./routes/emergency.routes.js";
-import prescriptionRoutes from "./routes/prescriptionRoutes.js";
-import medicalTermRoutes from "./routes/medicalTermRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
-import aboutRoutes from "./routes/aboutRoutes.js";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
+import { Server } from "socket.io";
+import { createServer } from "http";
 
 dotenv.config();
 const app = express();
+const server = createServer(app);
 
 // Cloudinary configuration
 cloudinary.config({
@@ -26,17 +23,17 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Create uploads directory if it doesn't exist
+// Create uploads directory
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const uploadsDir = path.join(__dirname, "uploads");
+const uploadsDir = path.join(__dirname, "Uploads");
 if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+  fs.mkdirSync(UploadsDir, { recursive: true });
 }
 
 // Middlewares
 app.use(cors());
 app.use(express.json());
-app.use("/uploads", express.static("uploads"));
+app.use("/uploads", express.static("Uploads"));
 
 // MongoDB connection
 mongoose
@@ -44,24 +41,12 @@ mongoose
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
-  .then(() => {
-    console.log("Connected to MongoDB");
-  })
-  .catch((err) => {
-    console.error("MongoDB connection error:", err);
-  });
+  .then(() => console.log("Connected to MongoDB"))
+  .catch((err) => console.error("MongoDB connection error:", err));
 
 // Routes
-app.use("/api/users", userRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/doctor", doctorRoutes); // Changed from /v1/api/doctor to /api/doctor
-app.use("/v1/api/medicines", medicineRoutes);
 app.use("/v1/api/orders", orderRoutes);
-app.use("/v1/api/emergency", emergencyRoutes);
-app.use("/v1/api/prescriptions", prescriptionRoutes);
-app.use("/api/medical-terms", medicalTermRoutes);
-app.use("/v1/api/orders", paymentRoutes);
-app.use("/api/about", aboutRoutes); // Add this line before other routes
+app.use("/api/payment", paymentRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -74,27 +59,32 @@ app.use((err, req, res, next) => {
 });
 
 // Socket.io setup
-import { Server } from "socket.io";
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:3000", "http://localhost:3001"],
+    origin: ["http://localhost:5173", "http://localhost:3000"],
     methods: ["GET", "POST"],
   },
 });
 
-// Make io accessible in routes
-app.io = io;
-
-io.on("connection", (socket) => {
-  console.log("Client connected");
-
-  socket.on("disconnect", () => {
-    console.log("Client disconnected");
-  });
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  if (!token) {
+    return next(new Error("Authentication error"));
+  }
+  next();
 });
 
+io.on("connection", (socket) => {
+  console.log("Client connected:", socket.id);
+  socket.on("join", (conversationId) => socket.join(conversationId));
+  socket.on("leave", (conversationId) => socket.leave(conversationId));
+  socket.on("disconnect", () => console.log("Client disconnected:", socket.id));
+});
+
+app.io = io;
+
 const PORT = process.env.PORT || 9000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
 

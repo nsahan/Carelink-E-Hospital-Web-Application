@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Download, Filter, Search, CreditCard, Truck } from 'lucide-react';
+import { Download, Filter, Search, CreditCard, Truck, AlertTriangle, Check, Package } from 'lucide-react';
 import { Select, MenuItem, FormControl } from '@mui/material';
+import { toast } from 'react-toastify';
 
 const PaymentMethodsTable = ({ orders }) => {
   return (
@@ -26,7 +27,7 @@ const PaymentMethodsTable = ({ orders }) => {
                   #{order._id.slice(-6)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {order.userId?.name || 'N/A'}
+                  {order.customerDetails?.fullName || 'N/A'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 text-xs font-semibold rounded-full 
@@ -45,6 +46,8 @@ const PaymentMethodsTable = ({ orders }) => {
                     ${order.status === 'completed' 
                       ? 'bg-green-100 text-green-800'
                       : order.status === 'pending'
+                      ? 'bg-yellow-100 text-yellow-800'
+                      : order.status === 'tracking_required'
                       ? 'bg-yellow-100 text-yellow-800'
                       : 'bg-red-100 text-red-800'}`}
                   >
@@ -72,111 +75,149 @@ const Billing = () => {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [error, setError] = useState(null);
-  const [orderForm, setOrderForm] = useState({
-    fullName: '',
-    phone: '',
-    email: '',
-    address: '',
-    city: '',
-    zipCode: '',
-    paymentMethod: ''
-  });
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: '',
-    severity: 'success'
-  });
 
   const getStatusBadgeClass = (status) => {
     const baseClasses = "px-2 py-1 rounded-full text-xs font-medium";
     switch (status) {
-      case 'paid': return `${baseClasses} bg-green-100 text-green-800`;
+      case 'completed': return `${baseClasses} bg-green-100 text-green-800`;
       case 'pending': return `${baseClasses} bg-yellow-100 text-yellow-800`;
+      case 'tracking_required': return `${baseClasses} bg-yellow-100 text-yellow-800`;
       case 'cancelled': return `${baseClasses} bg-red-100 text-red-800`;
       default: return `${baseClasses} bg-gray-100 text-gray-800`;
     }
   };
 
-  useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        setLoading(true);
-        const response = await axios.get('http://localhost:9000/v1/api/orders/all');
-        // Transform the data to ensure all required fields exist
-        const transformedOrders = response.data.map(order => ({
-          ...order,
-          customerDetails: order.customerDetails || {
-            fullName: 'N/A',
-            email: 'N/A',
-            phone: 'N/A'
-          },
-          items: order.items || [],
-          totalAmount: order.totalAmount || 0,
-          paymentMethod: order.paymentMethod || 'N/A',
-          paymentStatus: order.paymentStatus || 'pending',
-          shippingAddress: order.shippingAddress || 'N/A',
-          createdAt: order.createdAt || new Date(),
-          status: order.status || 'pending'
-        }));
-        setOrders(transformedOrders);
-      } catch (error) {
-        console.error('Error fetching orders:', error);
-        setError('Failed to fetch orders');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchOrders();
-  }, []);
-
-  const updateOrderStatus = async (orderId, newStatus) => {
-    try {
-      await axios.patch(`http://localhost:9000/v1/api/orders/${orderId}/status`, {
-        status: newStatus
-      });
-      fetchOrders(); // Refresh orders after update
-      setShowStatusModal(false);
-    } catch (error) {
-      console.error('Error updating order status:', error);
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'completed': return <Check className="w-4 h-4" />;
+      case 'pending': return <Clock className="w-4 h-4" />;
+      case 'tracking_required': return <AlertTriangle className="w-4 h-4" />;
+      case 'cancelled': return <AlertCircle className="w-4 h-4" />;
+      default: return <Package className="w-4 h-4" />;
     }
   };
 
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'tracking_required': return 'bg-yellow-100 text-yellow-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get('http://localhost:9000/v1/api/orders/all', {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('atoken')}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      const transformedOrders = response.data.map(order => ({
+        ...order,
+        customerDetails: order.customerDetails || {
+          fullName: 'N/A',
+          email: 'N/A',
+          phone: 'N/A',
+        },
+        items: order.items || [],
+        totalAmount: order.totalAmount || 0,
+        paymentMethod: order.paymentMethod || 'N/A',
+        paymentStatus: order.paymentStatus || 'pending',
+        shippingAddress: order.shippingAddress || 'N/A',
+        createdAt: order.createdAt || new Date(),
+        status: order.status || 'pending',
+      }));
+      setOrders(transformedOrders);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      setError('Failed to fetch orders');
+      toast.error('Failed to fetch orders', {
+        position: 'top-right',
+        autoClose: 3000,
+        theme: 'colored',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
   const handleStatusChange = async (orderId, newStatus) => {
     try {
-      await axios.put(`http://localhost:9000/v1/api/orders/${orderId}/status`, {
-        status: newStatus
-      }, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('atoken')}`,
-          'Content-Type': 'application/json'
+      const response = await axios.put(
+        `http://localhost:9000/v1/api/orders/${orderId}/status`,
+        { status: newStatus },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('atoken')}`,
+            'Content-Type': 'application/json',
+          },
         }
-      });
+      );
 
-      // Update local state
-      setOrders(orders.map(order => 
-        order._id === orderId ? { ...order, status: newStatus } : order
-      ));
-
-      setSnackbar({
-        open: true,
-        message: 'Order status updated successfully',
-        severity: 'success'
-      });
+      if (response.data.success) {
+        setOrders(orders.map(order =>
+          order._id === orderId ? { ...order, status: newStatus } : order
+        ));
+        toast.success('Order status updated successfully', {
+          position: 'top-right',
+          autoClose: 3000,
+          theme: 'colored',
+        });
+      }
     } catch (error) {
       console.error('Error updating order status:', error);
-      setSnackbar({
-        open: true,
-        message: 'Failed to update order status',
-        severity: 'error'
+      toast.error('Failed to update order status', {
+        position: 'top-right',
+        autoClose: 3000,
+        theme: 'colored',
+      });
+    }
+  };
+
+  const handleTrackOrder = async (orderId) => {
+    try {
+      const response = await axios.get(
+        `http://localhost:9000/v1/api/orders/${orderId}/tracking`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('atoken')}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      setOrders(orders.map(order =>
+        order._id === orderId
+          ? { ...order, tracking: response.data.tracking }
+          : order
+      ));
+      toast.info('Tracking information updated', {
+        position: 'top-right',
+        autoClose: 3000,
+        theme: 'colored',
+      });
+    } catch (error) {
+      console.error('Error fetching tracking info:', error);
+      toast.error('Failed to fetch tracking info', {
+        position: 'top-right',
+        autoClose: 3000,
+        theme: 'colored',
       });
     }
   };
 
   const filteredOrders = orders.filter(order => {
     const matchesStatus = filterStatus === 'all' || order.status === filterStatus;
-    const matchesSearch = 
-      order.orderId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch =
+      order._id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.customerDetails?.fullName?.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesStatus && matchesSearch;
   });
@@ -186,10 +227,10 @@ const Billing = () => {
       <div className="bg-white rounded-lg p-6 w-96">
         <h3 className="text-lg font-semibold mb-4">Update Order Status</h3>
         <div className="space-y-3">
-          {['pending', 'processing', 'completed', 'cancelled'].map((status) => (
+          {['pending', 'processing', 'shipped', 'completed', 'cancelled', 'tracking_required'].map((status) => (
             <button
               key={status}
-              onClick={() => updateOrderStatus(order._id, status)}
+              onClick={() => handleStatusChange(order._id, status)}
               className={`w-full p-3 rounded-lg flex items-center justify-between capitalize ${
                 order.status === status ? getStatusColor(status) : 'hover:bg-gray-50'
               }`}
@@ -227,8 +268,8 @@ const Billing = () => {
             <p className="text-sm">Date: {new Date(order.createdAt).toLocaleString()}</p>
             <p className="text-sm">Total Amount: Rs.{order.totalAmount}</p>
             <div className="mt-2">
-              <span className={getStatusBadgeClass(order.paymentStatus)}>
-                {order.paymentStatus}
+              <span className={getStatusBadgeClass(order.status)}>
+                {order.status}
               </span>
             </div>
           </div>
@@ -282,6 +323,18 @@ const Billing = () => {
           </div>
         </div>
 
+        {order.status === 'tracking_required' && (
+          <div className="mt-4">
+            <button
+              onClick={() => handleTrackOrder(order._id)}
+              className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 flex items-center"
+            >
+              <Truck className="w-4 h-4 mr-1" />
+              Track Order
+            </button>
+          </div>
+        )}
+
         <div className="mt-6 flex justify-end gap-4">
           <button
             className="px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200"
@@ -301,7 +354,27 @@ const Billing = () => {
     </div>
   );
 
-  // Update the main table to show medicine summary
+  const handleStatusUpdate = async (orderId, status) => {
+    try {
+      const response = await axios.put(
+        `http://localhost:9000/api/orders/${orderId}/status`,
+        { status },
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem('atoken')}` }
+        }
+      );
+
+      if (response.data.success) {
+        setOrders(orders.map(order => 
+          order._id === orderId ? { ...order, status } : order
+        ));
+        toast.success('Order status updated successfully');
+      }
+    } catch (error) {
+      toast.error('Failed to update order status');
+    }
+  };
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -325,8 +398,10 @@ const Billing = () => {
             <option value="all">All Status</option>
             <option value="pending">Pending</option>
             <option value="processing">Processing</option>
+            <option value="shipped">Shipped</option>
             <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>
+            <option value="tracking_required">Tracking Required</option>
           </select>
         </div>
       </div>
@@ -369,7 +444,7 @@ const Billing = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {orders.map((order) => (
+              {filteredOrders.map((order) => (
                 <tr key={order._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     #{order._id.slice(-6)}
@@ -398,7 +473,7 @@ const Billing = () => {
                       {order.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 whitespace-nowrap flex gap-2">
                     <button
                       onClick={() => {
                         setSelectedOrder(order);
@@ -408,8 +483,14 @@ const Billing = () => {
                     >
                       View Details
                     </button>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                    {order.status === 'tracking_required' && (
+                      <button
+                        onClick={() => handleTrackOrder(order._id)}
+                        className="text-yellow-600 hover:text-yellow-900"
+                      >
+                        Track
+                      </button>
+                    )}
                     <FormControl size="small">
                       <Select
                         value={order.status || 'pending'}
@@ -419,15 +500,16 @@ const Billing = () => {
                           minWidth: 120,
                           '& .MuiSelect-select': {
                             padding: '4px 8px',
-                            fontSize: '0.875rem'
-                          }
+                            fontSize: '0.875rem',
+                          },
                         }}
                       >
                         <MenuItem value="pending">Pending</MenuItem>
                         <MenuItem value="processing">Processing</MenuItem>
                         <MenuItem value="shipped">Shipped</MenuItem>
-                        <MenuItem value="delivered">Delivered</MenuItem>
+                        <MenuItem value="completed">Completed</MenuItem>
                         <MenuItem value="cancelled">Cancelled</MenuItem>
+                        <MenuItem value="tracking_required">Tracking Required</MenuItem>
                       </Select>
                     </FormControl>
                   </td>
@@ -458,7 +540,6 @@ const Billing = () => {
         />
       )}
 
-      {/* Add Payment Methods Table */}
       <PaymentMethodsTable orders={orders} />
     </div>
   );

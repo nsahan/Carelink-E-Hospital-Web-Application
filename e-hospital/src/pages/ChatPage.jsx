@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import io from 'socket.io-client';
-import { toast } from 'react-hot-toast'; // Add toast notifications
+import { toast } from 'react-hot-toast';
+import Forum from '../components/Forum'; // Add this import
 
 const socket = io('http://localhost:9000', {
   reconnection: true,
   reconnectionDelay: 1000,
-  reconnectionAttempts: 5
+  reconnectionAttempts: 5,
+  auth: {
+    token: localStorage.getItem('token')
+  }
 });
 
 const ChatPage = () => {
@@ -35,6 +39,7 @@ const ChatPage = () => {
     };
   }, []);
 
+  // Update API endpoints in fetchMessages
   const fetchMessages = useCallback(async (conversationId) => {
     try {
       setLoading(true);
@@ -42,9 +47,10 @@ const ChatPage = () => {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setMessages(response.data);
+      // Join the conversation room
+      socket.emit('join', conversationId);
     } catch (error) {
       toast.error('Failed to load messages');
-      console.error('Error fetching messages:', error);
     } finally {
       setLoading(false);
     }

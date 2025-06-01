@@ -5,10 +5,15 @@ import { protect, isAdmin } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
+// Error handling middleware
+const asyncHandler = (fn) => (req, res, next) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
+
 // General routes first
 router.get("/orders/all", orderController.getAllOrders);
 router.post("/orders/test", orderController.createTestOrder);
-router.post("/orders", orderController.createOrder);
+router.post("/orders", asyncHandler(orderController.createOrder));
 router.get("/orders/stats", orderController.getOrderStats);
 
 // Specific routes with parameters last
@@ -46,5 +51,20 @@ router.get("/my-orders", protect, orderController.getMyOrders);
 router.put("/:orderId/received", protect, orderController.updateOrderReceived);
 router.get("/user-orders", protect, orderController.getUserOrders);
 router.put("/status/:orderId", protect, orderController.updateOrderStatus);
+
+// Order routes
+router.get("/user/:userId", orderController.getUserOrders);
+router.post("/", orderController.createOrder);
+router.get("/all", protect, orderController.getAllOrders);
+
+// Error handler
+router.use((error, req, res, next) => {
+  console.error("Order Route Error:", error);
+  res.status(500).json({
+    success: false,
+    message: "Internal server error",
+    error: error.message,
+  });
+});
 
 export default router;

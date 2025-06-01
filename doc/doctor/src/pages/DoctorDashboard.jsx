@@ -50,44 +50,34 @@ const DoctorDashboard = () => {
         const doctorToken = localStorage.getItem('doctorToken');
 
         if (!doctorInfo || !doctorToken) {
-          toast.error('Please log in to access the dashboard');
           navigate('/login');
           return;
         }
 
         const doc = JSON.parse(doctorInfo);
-        if (!doc?._id) {
-          throw new Error('Invalid doctor information');
-        }
         setDoctor(doc);
 
         const response = await axios.get(
           `http://localhost:9000/api/appointments/doctor/${doc._id}/dashboard`,
           {
-            headers: { Authorization: `Bearer ${doctorToken}` },
+            headers: {
+              Authorization: `Bearer ${doctorToken}`,
+              'Content-Type': 'application/json',
+            },
           }
         );
 
         if (response.data.success) {
-          setStats({
-            totalPatients: response.data.stats?.totalPatients || 0,
-            todayAppointments: response.data.stats?.todayAppointments || 0,
-            completedAppointments: response.data.stats?.completedAppointments || 0,
-            upcomingAppointments: response.data.stats?.upcomingAppointments || 0,
-          });
-          setAppointments(response.data.appointments || []);
+          setStats(response.data.stats);
+          setAppointments(response.data.appointments);
         } else {
           throw new Error(response.data.message || 'Failed to fetch dashboard data');
         }
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
+        toast.error(error.response?.data?.message || 'Failed to load dashboard data');
         if (error.response?.status === 401) {
-          toast.error('Session expired. Please log in again.');
-          localStorage.removeItem('doctorToken');
-          localStorage.removeItem('doctorInfo');
           navigate('/login');
-        } else {
-          toast.error(error.message || 'Failed to load dashboard data');
         }
       } finally {
         setLoading(false);
@@ -332,3 +322,5 @@ const DoctorDashboard = () => {
 };
 
 export default DoctorDashboard;
+
+

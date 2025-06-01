@@ -3,6 +3,8 @@ import axios from 'axios';
 import { Search, Upload, ShoppingCart, Calendar, Clock, ArrowRight, PlusCircle, MapPin, Pill, FileText, Star, BarChart2, User, Phone, CreditCard, Bell, X, Check, Heart, AlertCircle, Home, Mail, ChevronDown, RefreshCw } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { jwtDecode } from 'jwt-decode';
+import { useNavigate } from 'react-router-dom';
 
 // Initialize Stripe
 const stripePromise = loadStripe('pk_test_51RTPjZQuyh1tLYvj4fHLAZfzpgW7XQKqmFK09RHd2FnLtB1yTMQBU5QagGZO17y9vPkd3JnVcIM7H9gOdED5BsJw00UBfavDQe');
@@ -15,7 +17,7 @@ const CheckoutForm = ({ orderData, onSubmit, onCancel }) => {
     address: '',
     city: '',
     zipCode: '',
-    paymentMethod: 'cod' // Default to Cash on Delivery
+    paymentMethod: 'cod',
   });
   const [showStripe, setShowStripe] = useState(false);
   const stripe = useStripe();
@@ -66,7 +68,6 @@ const CheckoutForm = ({ orderData, onSubmit, onCancel }) => {
           </button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Contact Information */}
           <div>
             <h3 className="text-lg font-medium mb-4">Contact Information</h3>
             <div className="space-y-4">
@@ -107,7 +108,6 @@ const CheckoutForm = ({ orderData, onSubmit, onCancel }) => {
               </div>
             </div>
           </div>
-          {/* Delivery Address */}
           <div>
             <h3 className="text-lg font-medium mb-4">Delivery Address</h3>
             <div className="space-y-4">
@@ -148,7 +148,6 @@ const CheckoutForm = ({ orderData, onSubmit, onCancel }) => {
               </div>
             </div>
           </div>
-          {/* Payment Method */}
           <div>
             <h3 className="text-lg font-medium mb-4">Payment Method</h3>
             <div className="space-y-3">
@@ -198,7 +197,6 @@ const CheckoutForm = ({ orderData, onSubmit, onCancel }) => {
               </div>
             )}
           </div>
-          {/* Order Summary */}
           <div className="border-t pt-4">
             <h3 className="text-lg font-medium mb-4">Order Summary</h3>
             <div className="space-y-2">
@@ -253,6 +251,7 @@ const Pharmacy = () => {
   const [user, setUser] = useState(null);
   const [prescriptionError, setPrescriptionError] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');
@@ -307,8 +306,8 @@ const Pharmacy = () => {
           onUploadProgress: (progressEvent) => {
             const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
             setUploadProgress(progress);
-          }
-        }
+          },
+        },
       );
 
       if (response.data.success) {
@@ -327,68 +326,86 @@ const Pharmacy = () => {
     }
   };
 
-  const handleCheckout = async (formData) => {
-    try {
-      if (formData.error) {
-        showNotificationMessage(formData.error);
-        return;
-      }
-
-      const outOfStockItems = cart.filter(item => {
-        const medicine = medicines.find(m => m._id === item._id);
-        return medicine?.stock === 0;
-      });
-
-      if (outOfStockItems.length > 0) {
-        showNotificationMessage(`Some items are out of stock: ${outOfStockItems.map(item => item.name).join(', ')}`);
-        return;
-      }
-
-      const orderData = {
-        items: cart.map(item => ({
-          medicineId: item._id,
-          quantity: 1,
-          price: Number(item.price)
-        })),
-        totalAmount: Number(cart.reduce((total, item) => total + item.price, 0) + 5),
-        shippingAddress: `${formData.address}, ${formData.city}, ${formData.zipCode}`.trim(),
-        customerDetails: {
-          fullName: formData.fullName.trim(),
-          phone: formData.phone.trim(),
-          email: formData.email.trim()
-        },
-        paymentMethod: formData.paymentMethod,
-        ...(formData.paymentMethod === 'card' && { paymentMethodId: formData.paymentMethodId })
-      };
-
-      const response = await axios.post('http://localhost:9000/v1/api/orders', orderData);
-      setOrderDetails({
-        orderId: response.data._id,
-        items: cart,
-        totalAmount: orderData.totalAmount,
-        estimatedDelivery: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-        orderDate: new Date().toLocaleString(),
-        customerDetails: orderData.customerDetails,
-        shippingAddress: orderData.shippingAddress
-      });
-      setShowCheckoutForm(false);
-      setOrderSuccess(true);
-      setCart([]);
-      fetchMedicines();
-    } catch (error) {
-      console.error('Order error:', error);
-      showNotificationMessage(error.response?.data?.message || 'Failed to place order');
+ const handleCheckout = async (formData) => {
+  try {
+    if (formData.error) {
+      showNotificationMessage(formData.error);
+      return;
     }
-  };
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Please login to place order');
+    }
+    const decoded = jwtDecode(token);
+    const userId = decoded.id;
+
+    const outOfStockItems = cart.filter(item => {
+      const medicine = medicines.find(m => m._id === item._id);
+      return medicine?.stock === 0;
+    });
+
+    if (outOfStockItems.length > 0) {
+      showNotificationMessage(`Some items are out of stock: ${outOfStockItems.map(item => item.name).join(', ')}`);
+      return;
+    }
+
+    const orderData = {
+      userId,
+      items: cart.map(item => ({
+        medicineId: item._id,
+        quantity: 1,
+        price: Number(item.price),
+      })),
+      totalAmount: Number(cart.reduce((sumtotal, item) => sumtotal + item.price, 0) + 5),
+      shippingAddress: `${formData.address}, ${formData.city}, ${formData.zipCode}`.trim(),
+      customerDetails: {
+        fullName: formData.fullName.trim(),
+        phone: formData.phone.trim(),
+        email: formData.email.trim(),
+      },
+      paymentMethod: formData.paymentMethod,
+      ...(formData.paymentMethod === 'card' && { paymentMethodId: formData.paymentMethodId }),
+    };
+
+    const response = await axios.post('http://localhost:9000/v1/api/orders', orderData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    setOrderDetails({
+      orderId: response.data.data._id,
+      items: cart,
+      totalAmount: orderData.totalAmount,
+      estimatedDelivery: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+      orderDate: new Date().toLocaleString(),
+      customerDetails: orderData.customerDetails,
+      shippingAddress: orderData.shippingAddress,
+    });
+    setShowCheckoutForm(false);
+    setOrderSuccess(true);
+    setCart([]);
+    fetchMedicines();
+  } catch (error) {
+    console.error('Order error:', error);
+    showNotificationMessage(error.response?.data?.message || 'Failed to place order');
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      navigate('/login');
+    }
+  }
+};
 
   const filteredMedicines = medicines.filter(med =>
     med.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    med.category.toLowerCase().includes(searchQuery.toLowerCase())
+    med.category.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   const addToCart = (medicine) => {
     if (medicine.stock === 0) {
-      showNotificationMessage("Sorry, this medicine is currently out of stock");
+      showNotificationMessage('Sorry, this medicine is currently out of stock');
       return;
     }
     setCart([...cart, medicine]);
@@ -505,7 +522,7 @@ const Pharmacy = () => {
                 <div className="border-t pt-2 mt-2">
                   <div className="flex justify-between font-medium">
                     <span>Total Amount</span>
-                    <span>Rs. {orderDetails.totalAmount}</span>
+                    <span>Rs.{orderDetails.totalAmount}</span>
                   </div>
                 </div>
               </div>
@@ -728,7 +745,7 @@ const Pharmacy = () => {
           <CheckoutForm
             orderData={{
               subtotal: cart.reduce((total, item) => total + item.price, 0),
-              total: cart.reduce((total, item) => total + item.price, 0) + 5
+              total: cart.reduce((total, item) => total + item.price, 0) + 5,
             }}
             onSubmit={handleCheckout}
             onCancel={() => setShowCheckoutForm(false)}
@@ -737,6 +754,6 @@ const Pharmacy = () => {
       )}
     </div>
   );
-};
 
+};
 export default Pharmacy;

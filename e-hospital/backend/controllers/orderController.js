@@ -101,6 +101,19 @@ exports.getOrderStats = async (req, res) => {
   }
 };
 
+export const getMyOrders = async (req, res) => {
+  try {
+    const orders = await Order.find({ userId: req.user._id })
+      .populate("items.medicineId", "name image manufacturer")
+      .sort({ createdAt: -1 });
+
+    res.json(orders || []);
+  } catch (error) {
+    console.error("Error fetching my orders:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 exports.reorderPreviousOrder = async (req, res) => {
   try {
     const originalOrder = await Order.findById(req.params.orderId).populate(

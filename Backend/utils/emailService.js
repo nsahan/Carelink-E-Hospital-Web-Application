@@ -19,7 +19,7 @@ export const sendEmail = async ({ to, subject, html }) => {
       subject,
       html,
     };
-
+ 
     const info = await transporter.sendMail(mailOptions);
     console.log("Email sent successfully:", info.response);
     return true;
@@ -32,31 +32,22 @@ export const sendEmail = async ({ to, subject, html }) => {
 export const sendSupplierNotification = async (medicines) => {
   try {
     const emailContent = `
-      <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #dc3545;">⚠️ Urgent: Low Stock Alert</h2>
-        <p>The following medicines need immediate restocking:</p>
+      <div style="font-family: Arial, sans-serif; padding: 20px;">
+        <h2 style="color: #dc3545;">⚠️ Low Stock Alert</h2>
+        <p>The following medicines require your attention:</p>
         <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
-          <thead style="background-color: #f8f9fa;">
-            <tr>
+          <thead>
+            <tr style="background-color: #f8f9fa;">
               <th style="padding: 12px; border: 1px solid #dee2e6;">Medicine Name</th>
               <th style="padding: 12px; border: 1px solid #dee2e6;">Current Stock</th>
-              <th style="padding: 12px; border: 1px solid #dee2e6;">Required Quantity</th>
-              <th style="padding: 12px; border: 1px solid #dee2e6;">Action</th>
+              <th style="padding: 12px; border: 1px solid #dee2e6;">Minimum Required</th>
+              <th style="padding: 12px; border: 1px solid #dee2e6;">Priority</th>
             </tr>
           </thead>
           <tbody>
             ${medicines
-              .map((med) => {
-                // Generate approval token
-                const token = jwt.sign(
-                  { medicineId: med.id, action: "restock" },
-                  process.env.JWT_SECRET,
-                  { expiresIn: "24h" }
-                );
-
-                const approvalUrl = `${process.env.BASE_URL}/v1/api/medicines/restock/approve/${med.id}/${token}`;
-
-                return `
+              .map(
+                (med) => `
                   <tr>
                     <td style="padding: 12px; border: 1px solid #dee2e6;">${
                       med.name
@@ -65,30 +56,30 @@ export const sendSupplierNotification = async (medicines) => {
                       med.stock <= 3 ? "#dc3545" : "#ffc107"
                     }">${med.stock}</td>
                     <td style="padding: 12px; border: 1px solid #dee2e6;">${
-                      med.reorderQuantity || 50
+                      med.reorderLevel || 10
                     }</td>
                     <td style="padding: 12px; border: 1px solid #dee2e6;">
-                      <a href="${approvalUrl}" 
-                         style="background-color: #28a745; color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px;">
-                        Approve Restock
-                      </a>
+                      ${
+                        med.stock <= 3
+                          ? '<span style="color: #dc3545; font-weight: bold;">URGENT</span>'
+                          : '<span style="color: #ffc107;">Normal</span>'
+                      }
                     </td>
                   </tr>
-                `;
-              })
+                `
+              )
               .join("")}
           </tbody>
         </table>
         <p style="margin-top: 20px; color: #666;">
-          Click the "Approve Restock" button for each medicine to authorize the restock.
-          These links will expire in 24 hours.
+          Please review and update the inventory accordingly.
         </p>
       </div>
     `;
 
     await sendEmail({
       to: process.env.SUPPLIER_EMAIL,
-      subject: "🚨 Urgent: Low Stock Alert - Immediate Action Required",
+      subject: "🚨 Low Stock Alert - Immediate Attention Required",
       html: emailContent,
     });
 
@@ -366,7 +357,8 @@ export const checkAndSendReminders = async () => {
 };
 
 export const sendOrderConfirmation = async (userEmail, orderDetails) => {
-  const { orderId, items, totalAmount, shippingAddress, paymentMethod } = orderDetails;
+  const { orderId, items, totalAmount, shippingAddress, paymentMethod } =
+    orderDetails;
 
   const emailTemplate = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -378,12 +370,16 @@ export const sendOrderConfirmation = async (userEmail, orderDetails) => {
         
         <div style="margin: 20px 0; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; padding: 20px 0;">
           <h4>Order Details:</h4>
-          ${items.map(item => `
+          ${items
+            .map(
+              (item) => `
             <div style="display: flex; justify-content: space-between; margin: 10px 0;">
               <span>${item.name} x ${item.quantity}</span>
               <span>Rs.${item.price * item.quantity}</span>
             </div>
-          `).join('')}
+          `
+            )
+            .join("")}
           <div style="margin-top: 15px; font-weight: bold;">
             <div style="display: flex; justify-content: space-between;">
               <span>Total Amount:</span>
@@ -411,12 +407,13 @@ export const sendOrderConfirmation = async (userEmail, orderDetails) => {
   return sendEmail({
     to: userEmail,
     subject: `Order Confirmation - #${orderId}`,
-    html: emailTemplate
+    html: emailTemplate,
   });
 };
 
 export const sendShippingUpdate = async (userEmail, shippingDetails) => {
-  const { orderId, trackingNumber, estimatedDelivery, carrierName } = shippingDetails;
+  const { orderId, trackingNumber, estimatedDelivery, carrierName } =
+    shippingDetails;
 
   const emailTemplate = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -428,7 +425,9 @@ export const sendShippingUpdate = async (userEmail, shippingDetails) => {
           <p><strong>Order ID:</strong> #${orderId}</p>
           <p><strong>Carrier:</strong> ${carrierName}</p>
           <p><strong>Tracking Number:</strong> ${trackingNumber}</p>
-          <p><strong>Estimated Delivery:</strong> ${new Date(estimatedDelivery).toLocaleDateString()}</p>
+          <p><strong>Estimated Delivery:</strong> ${new Date(
+            estimatedDelivery
+          ).toLocaleDateString()}</p>
         </div>
         
         <div style="background-color: #fff; padding: 15px; border-left: 4px solid #2563eb; margin: 20px 0;">
@@ -450,6 +449,6 @@ export const sendShippingUpdate = async (userEmail, shippingDetails) => {
   return sendEmail({
     to: userEmail,
     subject: `Your Order #${orderId} Has Been Shipped!`,
-    html: emailTemplate
+    html: emailTemplate,
   });
 };

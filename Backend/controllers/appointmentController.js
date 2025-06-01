@@ -122,40 +122,36 @@ const getDoctorAppointments = async (req, res) => {
 // Get appointments by user ID
 const getUserAppointments = async (req, res) => {
   try {
-    const userId = req.params.userId;
+    const { userId } = req.params;
 
     if (!userId) {
-      return res.status(400).json({ message: "User ID is required" });
+      return res.status(400).json({
+        success: false,
+        message: "User ID is required",
+        data: [],
+      });
     }
 
-    // First fetch appointments
-    const appointments = await Appointment.find({
-      userId,
-      status: { $ne: "cancelled" },
-    });
-
-    // Then populate doctor details manually
-    const populatedAppointments = await Promise.all(
-      appointments.map(async (appointment) => {
-        const doctor = await Doctor.findById(appointment.doctorId);
-        return {
-          ...appointment.toObject(),
-          doctorId: {
-            _id: doctor._id,
-            name: doctor.name,
-            specialty: doctor.specialty,
-            image: doctor.image,
-          },
-        };
+    const appointments = await Appointment.find({ userId })
+      .populate({
+        path: "doctorId",
+        select: "name specialty image fees", // Select specific fields
+        model: "Doctor",
       })
-    );
+      .sort({ date: -1 });
 
-    res.status(200).json(populatedAppointments);
+    // Always return an array
+    res.status(200).json({
+      success: true,
+      data: appointments || [],
+    });
   } catch (error) {
     console.error("Error in getUserAppointments:", error);
     res.status(500).json({
+      success: false,
       message: "Error fetching appointments",
       error: error.message,
+      data: [], // Return empty array even on error
     });
   }
 };
@@ -253,6 +249,77 @@ const cancelAppointment = async (req, res) => {
   }
 };
 
+// Get doctor dashboard stats
+const getDoctorDashboardStats = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+    if (!doctorId) {
+      return res.status(400).json({
+        success: false,
+        message: "Doctor ID is required",
+      });
+    }
+
+    // Get today's start and end dates
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const [
+      todayAppointments,
+      totalPatients,
+      upcomingAppointments,
+      completedAppointments,
+    ] = await Promise.all([
+      // Today's appointments
+      Appointment.find({
+        doctorId,
+        date: {
+          $gte: today,
+          $lt: tomorrow,
+        },
+      }).populate("userId", "name email phone"),
+
+      // Total unique patients
+      Appointment.distinct("userId", { doctorId }),
+
+      // Upcoming appointments
+      Appointment.find({
+        doctorId,
+        date: { $gt: today },
+        status: "pending",
+      }).countDocuments(),
+
+      // Completed appointments
+      Appointment.find({
+        doctorId,
+        status: "confirmed",
+      }).countDocuments(),
+    ]);
+
+    const stats = {
+      todayAppointments: todayAppointments.length,
+      totalPatients: totalPatients.length,
+      upcomingAppointments,
+      completedAppointments,
+    };
+
+    res.status(200).json({
+      success: true,
+      stats,
+      appointments: todayAppointments,
+    });
+  } catch (error) {
+    console.error("Dashboard stats error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching dashboard stats",
+      error: error.message,
+    });
+  }
+};
+
 // Export all controllers
 export {
   createAppointment,
@@ -261,4 +328,5 @@ export {
   updateAppointmentStatus,
   getAllAppointments,
   cancelAppointment,
+  getDoctorDashboardStats,
 };

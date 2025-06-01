@@ -1,31 +1,42 @@
-const express = require("express");
+import express from "express";
+import * as orderController from "../controllers/OrderController.js";
+import * as paymentController from "../controllers/PaymentController.js";
+import { protect, isAdmin } from "../middleware/authMiddleware.js";
+
 const router = express.Router();
-const auth = require("../middleware/auth");
-const {
-  createOrder,
-  getUserOrders,
-  updateOrderStatus,
-  reorderPreviousOrder,
-  getReorderHistory,
-} = require("../controllers/orderController");
 
-// Protected routes requiring authentication
-router.use(auth);
+// General routes
+router.post("/", protect, orderController.createOrder);
+router.get("/all", protect, isAdmin, orderController.getAllOrders);
+router.get("/stats", protect, isAdmin, orderController.getOrderStats);
+router.get(
+  "/sales-analytics",
+  protect,
+  isAdmin,
+  orderController.getSalesAnalytics
+);
+router.get("/billing-stats", protect, isAdmin, orderController.getBillingStats);
+router.post("/test", orderController.createTestOrder);
 
-// Get orders for authenticated user
-router.get("/user/:userId", getUserOrders);
+// User-specific routes
+router.get("/user/:userId", protect, orderController.getUserOrders);
+router.get("/my-orders", protect, orderController.getMyOrders);
 
-// Create new order
-router.post("/", createOrder);
+// Order-specific routes
+router.put(
+  "/:orderId/status",
+  protect,
+  isAdmin,
+  orderController.updateOrderStatus
+);
+router.put("/:orderId/received", protect, orderController.updateOrderReceived);
+router.delete("/:orderId", protect, isAdmin, orderController.deleteOrder);
 
-// Update order status
-router.patch("/:orderId/status", updateOrderStatus);
+// Payment routes
+router.post(
+  "/create-payment-intent",
+  protect,
+  paymentController.createPaymentIntent
+);
 
-// Reordering routes
-router.post("/:orderId/reorder", reorderPreviousOrder);
-router.get("/:orderId/reorder-history", getReorderHistory);
-
-// Get order statistics
-router.get("/stats", orderController.getOrderStats);
-
-module.exports = router;
+export default router;

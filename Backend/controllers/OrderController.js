@@ -1,109 +1,190 @@
 import Order from "../models/Order.js";
-import mongoose from "mongoose";
+import User from "../models/user.js";
 import Medicine from "../models/Medicine.js";
+import mongoose from "mongoose";
+import chalk from "chalk"; // Add this import at the top
+import jwt from "jsonwebtoken";
+import { sendOrderConfirmation } from '../utils/emailService.js';
+
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1 second
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const createOrder = async (req, res) => {
-  try {
-    console.log("Received order data:", req.body);
+  let currentTry = 0;
 
-    // Basic validation for required fields
-    if (
-      !req.body.customerDetails ||
-      !req.body.items ||
-      !req.body.shippingAddress
-    ) {
-      return res.status(400).json({
-        message: "Missing required order data",
-        details: "Customer details, items, and shipping address are required",
-      });
-    }
+  while (currentTry < MAX_RETRIES) {
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-    // Check stock availability
-    for (const item of req.body.items) {
-      const medicine = await Medicine.findById(item.medicineId);
-      if (!medicine) {
+    try {
+      const { items, totalAmount, shippingAddress, customerEmail } = req.body;
+      const token = req.headers.authorization?.split(" ")[1];
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required",
+        });
+      }
+
+      // Verify token and get user ID
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const userId = decoded.id;
+
+      // Validate user exists
+      const user = await User.findById(userId);
+      if (!user) {
         return res.status(404).json({
-          message: "Medicine not found",
-          details: `Medicine with ID ${item.medicineId} is not available`,
+          success: false,
+          message: "User not found",
         });
       }
-      if (medicine.stock < item.quantity) {
+
+      // Validate request data
+      if (!items?.length || !totalAmount || !shippingAddress) {
         return res.status(400).json({
-          message: "Insufficient stock",
-          details: `Only ${medicine.stock} units available for ${medicine.name}`,
+          success: false,
+          message: "Missing required fields",
         });
       }
-    }
 
-    // Create order with sanitized data
-    const order = new Order({
-      items: req.body.items.map((item) => ({
-        medicineId: item.medicineId,
-        quantity: parseInt(item.quantity),
-        price: parseFloat(item.price),
-      })),
-      totalAmount: parseFloat(req.body.totalAmount),
-      shippingAddress: req.body.shippingAddress.trim(),
-      customerDetails: {
-        fullName: req.body.customerDetails.fullName.trim(),
-        email: req.body.customerDetails.email.toLowerCase().trim(),
-        phone: req.body.customerDetails.phone.trim(),
-      },
-      status: "pending",
-    });
+      // Validate and update stock one by one instead of bulk
+      for (const item of items) {
+        const medicine = await Medicine.findById(item.medicineId).session(
+          session
+        );
 
-    // Update medicine stock
-    for (const item of req.body.items) {
-      await Medicine.findByIdAndUpdate(item.medicineId, {
-        $inc: { stock: -item.quantity },
+        if (!medicine) {
+          throw new Error(`Medicine not found: ${item.medicineId}`);
+        }
+
+        if (medicine.stock < item.quantity) {
+          throw new Error(`Insufficient stock for ${medicine.name}`);
+        }
+
+        // Update stock individually
+        await Medicine.findByIdAndUpdate(
+          item.medicineId,
+          { $inc: { stock: -item.quantity } },
+          { session, new: true }
+        );
+      }
+
+      // Create order with user ID
+      const order = new Order({
+        userId,
+        items: items.map((item) => ({
+          medicineId: item.medicineId,
+          quantity: item.quantity,
+          price: item.price,
+        })),
+        totalAmount,
+        shippingAddress,
+        status: "pending",
+        paymentStatus: "pending",
       });
+
+      await order.save({ session });
+      await session.commitTransaction();
+
+      // Send order confirmation email
+      await sendOrderConfirmation(customerEmail, {
+        orderId: order._id,
+        items: items.map(item => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price
+        })),
+        totalAmount,
+        shippingAddress,
+        paymentMethod: 'card'
+      });
+
+      // Log success message
+      console.log(chalk.green.bold("\n✨ New Order Created Successfully"));
+      console.log(chalk.blue("Order Details:"));
+      console.log(chalk.cyan("Order ID:"), chalk.yellow(order._id));
+      console.log(
+        chalk.cyan("Total Amount:"),
+        chalk.yellow(`Rs.${totalAmount}`)
+      );
+      console.log(chalk.cyan("Items:"), chalk.yellow(items.length));
+      console.log(chalk.cyan("Status:"), chalk.yellow("Pending"));
+      console.log(
+        chalk.cyan("Timestamp:"),
+        chalk.yellow(new Date().toLocaleString())
+      );
+      console.log(chalk.grey("----------------------------------------\n"));
+
+      return res.status(201).json({
+        success: true,
+        message: "Order created successfully",
+        data: order,
+      });
+    } catch (error) {
+      await session.abortTransaction();
+
+      if (
+        error.code === 112 || // Write conflict
+        error.errorLabels?.includes("TransientTransactionError")
+      ) {
+        currentTry++;
+        if (currentTry < MAX_RETRIES) {
+          console.log(`Retrying order creation (attempt ${currentTry + 1})`);
+          await sleep(RETRY_DELAY * currentTry); // Exponential backoff
+          continue;
+        }
+      }
+
+      console.error(chalk.red("⚠️ Order Creation Error:"), error);
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to create order",
+      });
+    } finally {
+      session.endSession();
     }
-
-    const savedOrder = await order.save();
-    console.log("Order saved:", savedOrder);
-
-    res.status(201).json(savedOrder);
-  } catch (error) {
-    console.error("Order creation error:", error);
-    res.status(400).json({
-      message: "Failed to create order",
-      details: error.message,
-    });
   }
+
+  return res.status(500).json({
+    success: false,
+    message: "Failed to create order after multiple retries",
+  });
 };
 
 export const getUserOrders = async (req, res) => {
   try {
-    const userId = req.user._id;
-
+    const userId = req.params.userId;
     const orders = await Order.find({ userId })
-      .populate({
-        path: "items.medicineId",
-        select: "name price category image",
-      })
+      .populate("userId", "name email phone") // Include user details
       .sort({ createdAt: -1 });
 
-    if (!orders) {
-      return res.status(404).json({
-        success: false,
-        message: "No orders found",
-      });
-    }
-
-    res.status(200).json({
+    res.json({
       success: true,
       data: orders,
     });
   } catch (error) {
-    console.error("Get user orders error:", error);
     res.status(500).json({
       success: false,
-      message: "Error fetching orders",
-      error: error.message,
+      message: error.message || "Failed to fetch orders",
     });
   }
 };
 
+export const getMyOrders = async (req, res) => {
+  try {
+    const orders = await Order.find({ userId: req.user._id })
+      .populate("items.medicineId", "name image manufacturer")
+      .sort({ createdAt: -1 });
+
+    res.json(orders || []);
+  } catch (error) {
+    console.error("Error fetching my orders:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 export const getAllOrders = async (req, res) => {
   try {
     console.log("GET /orders/all - Fetching all orders");
@@ -137,7 +218,10 @@ export const updateOrderStatus = async (req, res) => {
 
     const order = await Order.findByIdAndUpdate(
       orderId,
-      { status },
+      {
+        status,
+        ...(status === "completed" ? { receivedDate: new Date() } : {}),
+      },
       { new: true }
     );
 
@@ -340,39 +424,94 @@ export const getSalesAnalytics = async (req, res) => {
 export const updateOrderReceived = async (req, res) => {
   try {
     const { orderId } = req.params;
+
     const order = await Order.findByIdAndUpdate(
       orderId,
       {
-        status: "delivered",
+        status: "completed",
+        deliveredAt: new Date(),
+        $set: { "tracking.status": "delivered" },
+      },
+      { new: true }
+    );
+
+    // Schedule order deletion after 5 days
+    setTimeout(async () => {
+      await Order.findByIdAndDelete(orderId);
+    }, 5 * 24 * 60 * 60 * 1000); // 5 days in milliseconds
+
+    res.json({
+      success: true,
+      message: "Order marked as received",
+      data: order,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const markOrderAsReceived = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    const order = await Order.findByIdAndUpdate(
+      orderId,
+      {
+        status: "completed",
         deliveredAt: new Date(),
       },
       { new: true }
     );
 
     if (!order) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Order not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
     }
 
-    res.json({
+    res.status(200).json({
       success: true,
+      message: "Order marked as received",
       data: order,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
-export const getMyOrders = async (req, res) => {
+export const updateOrderNotReceived = async (req, res) => {
   try {
-    const orders = await Order.find({ userId: req.user._id })
-      .sort({ createdAt: -1 })
-      .populate("items.medicineId");
+    const { orderId } = req.params;
 
-    res.json(orders);
+    const order = await Order.findByIdAndUpdate(
+      orderId,
+      {
+        status: "tracking_required",
+        $set: {
+          "tracking.status": "investigating",
+          "tracking.lastUpdated": new Date(),
+        },
+      },
+      { new: true }
+    );
+
+    res.json({
+      success: true,
+      message: "Order marked for tracking",
+      data: order,
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
@@ -380,55 +519,55 @@ export const getBillingStats = async (req, res) => {
   try {
     // Get total orders count
     const totalOrders = await Order.countDocuments();
-    
+
     // Get payment method stats
-    const cardOrders = await Order.countDocuments({ paymentMethod: 'card' });
-    const codOrders = await Order.countDocuments({ paymentMethod: 'cod' });
-    
+    const cardOrders = await Order.countDocuments({ paymentMethod: "card" });
+    const codOrders = await Order.countDocuments({ paymentMethod: "cod" });
+
     // Calculate amounts by payment method
     const cardStats = await Order.aggregate([
-      { 
-        $match: { 
-          paymentMethod: 'card',
-          status: 'delivered' // Only count completed orders
-        }
+      {
+        $match: {
+          paymentMethod: "card",
+          status: "delivered", // Only count completed orders
+        },
       },
       {
         $group: {
           _id: null,
-          total: { $sum: '$totalAmount' }
-        }
-      }
+          total: { $sum: "$totalAmount" },
+        },
+      },
     ]);
 
     const codStats = await Order.aggregate([
-      { 
-        $match: { 
-          paymentMethod: 'cod',
-          status: 'delivered' // Only count completed orders
-        }
+      {
+        $match: {
+          paymentMethod: "cod",
+          status: "delivered", // Only count completed orders
+        },
       },
       {
         $group: {
           _id: null,
-          total: { $sum: '$totalAmount' }
-        }
-      }
+          total: { $sum: "$totalAmount" },
+        },
+      },
     ]);
 
     // Calculate total revenue from all completed orders
     const totalRevenue = await Order.aggregate([
-      { 
-        $match: { 
-          status: 'delivered'
-        }
+      {
+        $match: {
+          status: "delivered",
+        },
       },
       {
         $group: {
           _id: null,
-          total: { $sum: '$totalAmount' }
-        }
-      }
+          total: { $sum: "$totalAmount" },
+        },
+      },
     ]);
 
     res.json({
@@ -442,10 +581,38 @@ export const getBillingStats = async (req, res) => {
       // ...existing stats...
     });
   } catch (error) {
-    console.error('Error getting billing stats:', error);
+    console.error("Error getting billing stats:", error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching billing statistics'
+      message: "Error fetching billing statistics",
+    });
+  }
+};
+
+export const deleteOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const order = await Order.findById(id);
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    await Order.findByIdAndDelete(id);
+
+    res.status(200).json({
+      success: true,
+      message: "Order deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting order:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete order",
+      error: error.message,
     });
   }
 };

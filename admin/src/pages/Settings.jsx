@@ -28,7 +28,7 @@ const Settings = () => {
     maintenanceMode: false,
     minPasswordLength: 8,
     requireSpecialChars: true,
-
+       
     // API Configuration
     apiEndpoint: 'https://api.example.com',
     apiVersion: 'v1',

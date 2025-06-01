@@ -294,7 +294,7 @@ const getUserAppointments = async (req, res) => {
       .find({ userId })
       .populate("doctorId", "name image specialty")
       .sort({ date: 1, time: 1 });
-             
+
     res.status(200).json({
       success: true,
       data: appointments,
@@ -308,7 +308,7 @@ const getUserAppointments = async (req, res) => {
     });
   }
 };
-   
+
 const getAllUsers = async (req, res) => {
   try {
     const users = await userModel
@@ -330,6 +330,26 @@ const getAllUsers = async (req, res) => {
   }
 };
 
+const getUserProfile = async (req, res) => {
+  try {
+    const user = req.user;
+    res.json({
+      success: true,
+      data: {
+        name: user.name,
+        email: user.email,
+        phone: user.phone || "",
+        address: user.address || "",
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 export {
   registerUser,
   loginUser,
@@ -338,4 +358,5 @@ export {
   googleAuth,
   getUserAppointments,
   getAllUsers, // Add this export
+  getUserProfile,
 };

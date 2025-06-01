@@ -37,13 +37,19 @@ try {
   if (err.code !== "EEXIST") throw err;
 }
 
+// Import models first to register schemas
+import "./models/user.js";
+import "./models/Order.js";
+import "./models/Medicine.js";
+
 //api endpoints
 app.use("/api/admin", router);
 app.use("/api/doctor", doctorRouter);
 app.use("/api/users", userRouter);
 app.use("/api/appointments", appointmentRouter);
 app.use("/api/admin", adminRoutes);
-app.use("/v1/api/", medicineRoutes);
+app.use("/api/orders", orderRoutes); // Updated path - remove /v1/api
+app.use("/api/medicines", medicineRoutes); // Updated path
 app.use("/v1/api", medicineRoutes);
 app.use("/v1/api", orderRoutes);
 app.use("/v1/api", prescriptionRoutes);

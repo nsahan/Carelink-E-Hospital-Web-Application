@@ -5,21 +5,12 @@ const orderSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: false, // Make userId optional
+      required: false, // Changed from true to false
     },
-    customerDetails: {
-      fullName: {
-        type: String,
-        required: [true, "Customer name is required"],
-      },
-      email: {
-        type: String,
-        required: [true, "Customer email is required"],
-      },
-      phone: {
-        type: String,
-        required: [true, "Customer phone is required"],
-      },
+    guestInfo: {
+      name: String,
+      email: String,
+      phone: String,
     },
     items: [
       {
@@ -28,16 +19,9 @@ const orderSchema = new mongoose.Schema(
           ref: "Medicine",
           required: true,
         },
-        quantity: {
-          type: Number,
-          required: true,
-          min: 1,
-        },
-        price: {
-          type: Number,
-          required: true,
-          min: 0,
-        },
+        name: String,
+        quantity: Number,
+        price: Number,
       },
     ],
     totalAmount: {
@@ -50,13 +34,29 @@ const orderSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "processing", "completed", "cancelled"],
+      enum: ["pending", "shipped", "completed", "cancelled"],
       default: "pending",
     },
+    paymentStatus: {
+      type: String,
+      enum: ["pending", "completed", "failed"],
+      default: "pending",
+    },
+    paymentMethod: {
+      type: String,
+      default: "cod",
+    },
+    deliveryDate: {
+      type: Date,
+      default: function () {
+        const date = new Date();
+        date.setDate(date.getDate() + 5); // Set delivery date to 5 days from order
+        return date;
+      },
+    },
+    receivedDate: Date,
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
 export default mongoose.model("Order", orderSchema);

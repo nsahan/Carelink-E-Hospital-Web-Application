@@ -6,6 +6,7 @@ import {
   updateUserImage,
   googleAuth,
   getAllUsers,
+  getUserProfile,
 } from "../controllers/usercontroller.js";
 import { protect, isAdmin } from "../middleware/authMiddleware.js";
 import upload from "../middleware/uploadMiddleware.js";
@@ -18,6 +19,7 @@ router.put("/update", protect, updateUser);
 router.post("/update-image", protect, upload.single("image"), updateUserImage);
 router.post("/google", googleAuth);
 router.get("/all", protect, isAdmin, getAllUsers);
+router.get("/profile", protect, getUserProfile);
 
 // Admin routes
 router.get("/admin/users", protect, isAdmin, getAllUsers);
