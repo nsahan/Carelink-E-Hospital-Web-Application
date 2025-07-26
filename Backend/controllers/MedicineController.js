@@ -32,6 +32,34 @@ export const getMedicines = async (req, res) => {
 
 // Add a new medicine
 export const addMedicine = async (req, res) => {
+  // Support adding a new category by dummy medicine (for category dropdown)
+  // If name starts with __dummy__, don't require all fields
+  if (req.body.name && req.body.name.startsWith("__dummy__")) {
+    try {
+      const medicine = new Medicine({
+        name: req.body.name,
+        description: req.body.description || "Dummy for category creation",
+        genericName: req.body.genericName || "",
+        expiryDate:
+          req.body.expiryDate ||
+          new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        price: req.body.price || 1,
+        category: req.body.category,
+        stock: req.body.stock || 1,
+        reorderLevel: req.body.reorderLevel || 10,
+        reorderQuantity: req.body.reorderQuantity || 50,
+        autoReorder: false,
+      });
+      await medicine.save();
+      // Don't return the dummy medicine in response
+      return res
+        .status(201)
+        .json({ success: true, message: "Dummy category created" });
+    } catch (error) {
+      return res.status(400).json({ message: error.message });
+    }
+  }
+
   const medicine = new Medicine({
     name: req.body.name,
     description: req.body.description,
@@ -119,5 +147,16 @@ export const notifySuppliers = async (req, res) => {
       message: "Failed to notify suppliers",
       error: error.message,
     });
+  }
+};
+
+// Get all unique medicine categories
+export const getMedicineCategories = async (req, res) => {
+  try {
+    const categories = await Medicine.distinct("category");
+    res.status(200).json(categories);
+  } catch (error) {
+    console.error("Error fetching medicine categories:", error);
+    res.status(500).json({ message: "Error fetching categories" });
   }
 };

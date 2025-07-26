@@ -1,32 +1,24 @@
 import mongoose from "mongoose";
 
-const reorderRequestSchema = new mongoose.Schema(
-  {
-    medicineId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Medicine",
-      required: true,
-    },
-    quantity: {
-      type: Number,
-      required: true,
-    },
-    status: {
-      type: String,
-      enum: ["pending", "approved", "completed", "cancelled"],
-      default: "pending",
-    },
-    requestDate: {
-      type: Date,
-      default: Date.now,
-    },
-    approvalDate: Date,
-    completionDate: Date,
-    supplierEmail: String,
-    notes: String,
+const reorderRequestSchema = new mongoose.Schema({
+  medicineId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Medicine",
+    required: true,
   },
-  { timestamps: true }
-);
+  quantity: {
+    type: Number,
+    required: true,
+  },
+  status: {
+    type: String,
+    enum: ["pending", "approved", "completed"],
+    default: "pending",
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
 
-export default mongoose.models.ReorderRequest ||
-  mongoose.model("ReorderRequest", reorderRequestSchema);
+export default mongoose.model("ReorderRequest", reorderRequestSchema);

@@ -9,6 +9,7 @@ import {
   getRelatedDoctors,
   getDoctorAppointments,
   getDoctorProfile,
+  updateDoctorSchedule,
 } from "../controllers/doctorcontroller.js";
 import {
   verifyToken,
@@ -26,13 +27,19 @@ router.get("/test", (req, res) => {
 // Doctor authentication routes
 router.post("/login", loginDoctor);
 
-// Main routes
+// Main routes - IMPORTANT: More specific routes must come before less specific ones
 router.get("/all", verifyToken, getAllDoctors);
-router.put("/:id", verifyToken, updateDoctor);
-router.delete("/:id", verifyToken, deleteDoctor);
-router.get("/:id", getDoctorById);
+router.get("/profile", protect, getDoctorProfile);
+router.get("/recent", getRecentDoctors); // Added this route if needed
 router.get("/related/:specialty", getRelatedDoctors);
 router.get("/appointments/:doctorId", protect, getDoctorAppointments);
-router.get("/profile", protect, getDoctorProfile);
+
+// Schedule route MUST come before the general /:id route
+router.put("/:id/schedule", verifyToken, updateDoctorSchedule);
+
+// General doctor routes (these should come after specific routes)
+router.get("/:id", getDoctorById);
+router.put("/:id", verifyToken, updateDoctor);
+router.delete("/:id", verifyToken, deleteDoctor);
 
 export default router;

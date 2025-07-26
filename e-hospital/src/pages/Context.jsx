@@ -132,12 +132,7 @@ const Contact = () => {
                 </div>
               </div>
               
-              <div className="mt-8 pt-6 border-t border-gray-200">
-                <a href="#map" className="group inline-flex items-center text-blue-600 hover:text-blue-800 font-medium">
-                  View on map 
-                  <ChevronRight className="h-4 w-4 ml-1 group-hover:ml-2 transition-all" />
-                </a>
-              </div>
+            
             </div>
           </div>
 
@@ -158,7 +153,7 @@ const Contact = () => {
                         onChange={handleChange} 
                         required 
                         className="pl-10 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50" 
-                        placeholder="John Doe"
+                        placeholder="Your Name"
                       />
                       <User className="h-5 w-5 text-gray-400 absolute left-3 top-3" />
                     </div>
@@ -175,7 +170,7 @@ const Contact = () => {
                         onChange={handleChange} 
                         required 
                         className="pl-10 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50" 
-                        placeholder="example@gmail.com"
+                        placeholder="Your email"
                       />
                       <Mail className="h-5 w-5 text-gray-400 absolute left-3 top-3" />
                     </div>

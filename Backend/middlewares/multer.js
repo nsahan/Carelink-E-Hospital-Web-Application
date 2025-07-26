@@ -9,3 +9,4 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 export default upload; //exporting the upload function to use it in the admincontroller.js file
+  

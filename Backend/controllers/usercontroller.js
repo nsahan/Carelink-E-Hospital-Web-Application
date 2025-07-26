@@ -332,20 +332,70 @@ const getAllUsers = async (req, res) => {
 
 const getUserProfile = async (req, res) => {
   try {
-    const user = req.user;
-    res.json({
+    // Validate that req.user exists
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required. User not found."
+      });
+    }
+
+    // Fetch full user profile to ensure all details are present
+    const fullUserProfile = await userModel.findById(req.user._id).select("-password");
+
+    // Additional validation
+    if (!fullUserProfile) {
+      return res.status(404).json({
+        success: false,
+        message: "User profile not found"
+      });
+    }
+
+    // Construct comprehensive user profile
+    const userProfile = {
+      _id: fullUserProfile._id,
+      name: fullUserProfile.name || '',
+      email: fullUserProfile.email || '',
+      image: fullUserProfile.image || '',
+      role: fullUserProfile.role || 'user',
+      phone: fullUserProfile.phone || '',
+      address: fullUserProfile.address || '',
+      blood_group: fullUserProfile.blood_group || 'Not Selected',
+      height: fullUserProfile.height || 0,
+      weight: fullUserProfile.weight || 0
+    };
+
+    // Extensive logging for debugging
+    console.log("Full user profile retrieved:", {
+      userId: userProfile._id,
+      name: userProfile.name,
+      email: userProfile.email,
+      hasImage: !!userProfile.image,
+      role: userProfile.role
+    });
+
+    // Validate required fields
+    const requiredFields = ['_id', 'name', 'email'];
+    const missingFields = requiredFields.filter(field => !userProfile[field]);
+
+    if (missingFields.length > 0) {
+      console.error("Missing required user fields:", missingFields);
+      return res.status(400).json({
+        success: false,
+        message: `Incomplete user profile. Missing fields: ${missingFields.join(', ')}`
+      });
+    }
+
+    res.status(200).json({
       success: true,
-      data: {
-        name: user.name,
-        email: user.email,
-        phone: user.phone || "",
-        address: user.address || "",
-      },
+      data: userProfile
     });
   } catch (error) {
+    console.error("Error in getUserProfile:", error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Internal server error while retrieving user profile",
+      error: error.message
     });
   }
 };

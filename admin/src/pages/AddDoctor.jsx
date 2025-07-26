@@ -7,18 +7,12 @@ const AddDoctor = ({ sidebar }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    password: '',
     specialty: '',
     degree: '',
     experience: '',
     about: '',
-    available: '',
-    fees: '',
     address: '',
-    workingHours: {
-      start: '09:00',
-      end: '17:00'
-    },
+    workingHours: { start: '09:00', end: '17:00' },
     availability: [
       { day: 'Monday', isAvailable: true, timeSlots: [] },
       { day: 'Tuesday', isAvailable: true, timeSlots: [] },
@@ -26,10 +20,10 @@ const AddDoctor = ({ sidebar }) => {
       { day: 'Thursday', isAvailable: true, timeSlots: [] },
       { day: 'Friday', isAvailable: true, timeSlots: [] },
       { day: 'Saturday', isAvailable: false, timeSlots: [] },
-      { day: 'Sunday', isAvailable: false, timeSlots: [] }
+      { day: 'Sunday', isAvailable: false, timeSlots: [] },
     ],
     maxAppointmentsPerDay: 20,
-    offDays: []
+    offDays: [],
   });
 
   const [image, setImage] = useState(null);
@@ -39,13 +33,13 @@ const AddDoctor = ({ sidebar }) => {
   const [success, setSuccess] = useState('');
   const [step, setStep] = useState(1);
 
-  // Check for token on component mount
   useEffect(() => {
     const token = localStorage.getItem('atoken');
     if (!token) {
-      setError("You are not logged in. Please log in to continue.");
+      setError('You are not logged in. Please log in to continue.');
+      navigate('/login');
     }
-  }, []);
+  }, [navigate]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -53,17 +47,34 @@ const AddDoctor = ({ sidebar }) => {
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
-    setImage(file);
-    
-    // Create image preview
     if (file) {
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        setError('Image size must be less than 5MB');
+        e.target.value = '';
+        return;
+      }
+      if (file.size === 0) {
+        setError('Selected image is empty');
+        e.target.value = '';
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        setError('Please select an image file (JPEG, PNG, etc.)');
+        e.target.value = '';
+        return;
+      }
+
+      setImage(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result);
       };
       reader.readAsDataURL(file);
     } else {
+      setImage(null);
       setImagePreview(null);
+      e.target.value = '';
     }
   };
 
@@ -90,9 +101,59 @@ const AddDoctor = ({ sidebar }) => {
     newAvailability[dayIndex].timeSlots.push({
       startTime: '',
       endTime: '',
-      maxPatients: 4
+      maxPatients: 4,
     });
     setFormData({ ...formData, availability: newAvailability });
+  };
+
+  const validateForm = () => {
+    const fieldsToValidate =
+      step === 1
+        ? ['name', 'email']
+        : step === 2
+          ? ['specialty', 'degree', 'experience', 'about']
+          : ['address'];
+
+    for (const key of fieldsToValidate) {
+      if (!formData[key] || formData[key].trim() === '') {
+        setError(`${key.charAt(0).toUpperCase() + key.slice(1)} is required`);
+        return false;
+      }
+    }
+
+    if (step === 1) {
+      if (!/\S+@\S+\.\S+/.test(formData.email)) {
+        setError('Invalid email format');
+        return false;
+      }
+    } else if (step === 2) {
+      if (isNaN(Number(formData.experience)) || Number(formData.experience) < 0) {
+        setError('Experience must be a valid positive number');
+        return false;
+      }
+      if (formData.about.length < 10) {
+        setError('About section must be at least 10 characters');
+        return false;
+      }
+      if (formData.specialty.trim().toLowerCase() === formData.name.trim().toLowerCase()) {
+        setError('Specialty cannot be the same as the doctor\'s name');
+        return false;
+      }
+    } else if (step === 3) {
+      if (!image) {
+        setError('Profile image is required');
+        return false;
+      }
+      const hasAvailableDay = formData.availability.some(
+        (day) => day.isAvailable && day.timeSlots.length > 0 && day.timeSlots.every((slot) => slot.startTime && slot.endTime && slot.maxPatients > 0)
+      );
+      if (!hasAvailableDay) {
+        setError('At least one available day with valid time slots (start time, end time, and max patients) is required');
+        return false;
+      }
+    }
+
+    return true;
   };
 
   const handleSubmit = async (e) => {
@@ -102,143 +163,103 @@ const AddDoctor = ({ sidebar }) => {
     setSuccess('');
 
     const token = localStorage.getItem('atoken');
-    
     if (!token) {
-      setError("You are not logged in. Please log in to continue.");
+      setError('You are not logged in. Please log in to continue.');
       setLoading(false);
+      navigate('/login');
       return;
     }
 
-    // Validate form data before submission
     if (!validateForm()) {
       setLoading(false);
       return;
     }
 
-    const submitData = new FormData();
-    Object.keys(formData).forEach((key) => {
-      submitData.append(key, formData[key]);
-    });
-    
-    if (image) {
-      submitData.append('image', image);
-    }
-
     try {
-      const response = await axios.post(
-        "http://localhost:9000/api/admin/add-doctor",
-        submitData,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data',
-          },
-        }
-      );
+      const submitData = new FormData();
 
-      if (response.data) {
-        setSuccess('Doctor added successfully!');
-        setFormData({
-          name: '',
-          email: '',
-          password: '',
-          specialty: '',
-          degree: '',
-          experience: '',
-          about: '',
-          available: '',
-          fees: '',
-          address: '',
-          workingHours: {
-            start: '09:00',
-            end: '17:00'
-          },
-          availability: [
-            { day: 'Monday', isAvailable: true, timeSlots: [] },
-            { day: 'Tuesday', isAvailable: true, timeSlots: [] },
-            { day: 'Wednesday', isAvailable: true, timeSlots: [] },
-            { day: 'Thursday', isAvailable: true, timeSlots: [] },
-            { day: 'Friday', isAvailable: true, timeSlots: [] },
-            { day: 'Saturday', isAvailable: false, timeSlots: [] },
-            { day: 'Sunday', isAvailable: false, timeSlots: [] }
-          ],
-          maxAppointmentsPerDay: 20,
-          offDays: []
-        });
-        setImage(null);
-        setImagePreview(null);
-        setStep(1);
+      const fields = [
+        'name',
+        'email',
+        'specialty',
+        'degree',
+        'experience',
+        'about',
+        'address',
+        'maxAppointmentsPerDay',
+      ];
+      fields.forEach((field) => {
+        if (formData[field] !== undefined && formData[field] !== '') {
+          submitData.append(field, formData[field]);
+        }
+      });
+
+      submitData.append('workingHours', JSON.stringify(formData.workingHours));
+      submitData.append('availability', JSON.stringify(formData.availability));
+      submitData.append('offDays', JSON.stringify(formData.offDays));
+
+      if (image) {
+        submitData.append('image', image);
+      }
+
+      console.log('Sending FormData:');
+      for (let [key, value] of submitData.entries()) {
+        console.log(`${key}: ${value instanceof File ? value.name : value}`);
+      }
+
+      if (!submitData.entries().next().done) {
+        const response = await axios.post(
+          'http://localhost:9000/api/admin/add-doctor',
+          submitData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'multipart/form-data',
+            },
+            timeout: 60000,
+            maxContentLength: Infinity,
+            maxBodyLength: Infinity,
+          }
+        );
+
+        if (response.data.success) {
+          setSuccess('Doctor added successfully!');
+          setFormData({
+            name: '',
+            email: '',
+            specialty: '',
+            degree: '',
+            experience: '',
+            about: '',
+            address: '',
+            workingHours: { start: '09:00', end: '17:00' },
+            availability: [
+              { day: 'Monday', isAvailable: true, timeSlots: [] },
+              { day: 'Tuesday', isAvailable: true, timeSlots: [] },
+              { day: 'Wednesday', isAvailable: true, timeSlots: [] },
+              { day: 'Thursday', isAvailable: true, timeSlots: [] },
+              { day: 'Friday', isAvailable: true, timeSlots: [] },
+              { day: 'Saturday', isAvailable: false, timeSlots: [] },
+              { day: 'Sunday', isAvailable: false, timeSlots: [] },
+            ],
+            maxAppointmentsPerDay: 20,
+            offDays: [],
+          });
+          setImage(null);
+          setImagePreview(null);
+          setStep(1);
+          document.querySelector('input[type="file"]').value = '';
+          navigate('/doctors'); // Redirect to doctors list
+        }
+      } else {
+        throw new Error('FormData is empty');
       }
     } catch (err) {
-      if (err.response?.status === 401) {
-        setError("Authentication failed. Please log in again.");
-        localStorage.removeItem('token');
-        navigate('/login');
-      } else if (err.response?.status === 403) {
-        setError("You don't have permission to add doctors.");
-      } else {
-        setError(err.response?.data?.message || 'Error adding doctor. Please try again.');
-      }
+      console.error('Submit error:', err);
+      setError(err.response?.data?.message || 'Error adding doctor. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
-
-  const validateForm = () => {
-    // Only validate current step fields
-    const fieldsToValidate = step === 1 
-      ? ['name', 'email', 'password'] 
-      : step === 2 
-      ? ['specialty', 'degree', 'experience', 'about'] 
-      : ['available', 'fees', 'address'];
-
-    // Check for empty required fields
-    for (const key of fieldsToValidate) {
-      if (formData[key] === '') {
-        setError(`${key.charAt(0).toUpperCase() + key.slice(1)} is required`);
-        return false;
-      }
-    }
-
-    // Step-specific validations
-    if (step === 1) {
-      // Validate email format
-      if (!/\S+@\S+\.\S+/.test(formData.email)) {
-        setError("Invalid email format");
-        return false;
-      }
-
-      // Validate password length
-      if (formData.password.length < 6) {
-        setError("Password must be at least 6 characters");
-        return false;
-      }
-    } else if (step === 2) {
-      // Validate numerical fields
-      if (isNaN(formData.experience)) {
-        setError("Experience must be a valid number");
-        return false;
-      }
-
-      // Validate text length for specific fields
-      if (formData.about.length < 10) {
-        setError("About section must be at least 10 characters");
-        return false;
-      }
-    } else if (step === 3) {
-      // Validate numerical fields
-      if (isNaN(formData.available) || isNaN(formData.fees)) {
-        setError("Available slots and fees must be valid numbers");
-        return false;
-      }
-
-      if (!image && step === 3) {
-        setError("Profile image is required");
-        return false;
-      }
-    }
-
-    return true;
   };
 
   const nextStep = () => {
@@ -253,11 +274,10 @@ const AddDoctor = ({ sidebar }) => {
     setError('');
   };
 
-  // Group form fields by step
   const renderFormFields = () => {
     if (step === 1) {
       return (
-        <div className="space-y-4 ">
+        <div className="space-y-4">
           <h2 className="text-xl font-medium text-gray-800">Basic Information</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -271,6 +291,7 @@ const AddDoctor = ({ sidebar }) => {
                 onChange={handleChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Dr. John Smith"
+                required
               />
             </div>
             <div>
@@ -284,19 +305,7 @@ const AddDoctor = ({ sidebar }) => {
                 onChange={handleChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="doctor@example.com"
-              />
-            </div>
-            <div>
-              <label className="block text-gray-700 font-medium mb-2" htmlFor="password">
-                Password <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Minimum 6 characters"
+                required
               />
             </div>
           </div>
@@ -318,6 +327,7 @@ const AddDoctor = ({ sidebar }) => {
                 onChange={handleChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Cardiology, Neurology, etc."
+                required
               />
             </div>
             <div>
@@ -331,6 +341,7 @@ const AddDoctor = ({ sidebar }) => {
                 onChange={handleChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="MBBS, MD, MS, etc."
+                required
               />
             </div>
             <div>
@@ -344,6 +355,8 @@ const AddDoctor = ({ sidebar }) => {
                 onChange={handleChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="5"
+                min="0"
+                required
               />
             </div>
             <div className="md:col-span-2">
@@ -357,111 +370,21 @@ const AddDoctor = ({ sidebar }) => {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 rows="4"
                 placeholder="Professional background, specializations, achievements, etc."
+                required
               />
             </div>
           </div>
         </div>
       );
     } else {
-      return (
-        <div className="space-y-4">
-          <h2 className="text-xl font-medium text-gray-800">Practice Details</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-gray-700 font-medium mb-2" htmlFor="available">
-                Available Slots <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                name="available"
-                value={formData.available}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="10"
-              />
-            </div>
-            <div>
-              <label className="block text-gray-700 font-medium mb-2" htmlFor="fees">
-                Consultation Fee <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                name="fees"
-                value={formData.fees}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="100"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-gray-700 font-medium mb-2" htmlFor="address">
-                Clinic Address <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="123 Medical Center St, City, State, ZIP"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-gray-700 font-medium mb-2" htmlFor="image">
-                Profile Image <span className="text-red-500">*</span>
-              </label>
-              <div className="flex items-center space-x-4">
-                <div className="flex-1">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-                {imagePreview && (
-                  <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-blue-500">
-                    <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      );
+      return renderPracticeDetails();
     }
   };
 
   const renderPracticeDetails = () => (
     <div className="space-y-6">
-      {/* Existing practice details */}
+      <h2 className="text-xl font-medium text-gray-800">Practice Details</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-gray-700 font-medium mb-2" htmlFor="available">
-            Available Slots <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="number"
-            name="available"
-            value={formData.available}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="10"
-          />
-        </div>
-        <div>
-          <label className="block text-gray-700 font-medium mb-2" htmlFor="fees">
-            Consultation Fee <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="number"
-            name="fees"
-            value={formData.fees}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="100"
-          />
-        </div>
         <div className="md:col-span-2">
           <label className="block text-gray-700 font-medium mb-2" htmlFor="address">
             Clinic Address <span className="text-red-500">*</span>
@@ -473,6 +396,7 @@ const AddDoctor = ({ sidebar }) => {
             onChange={handleChange}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             placeholder="123 Medical Center St, City, State, ZIP"
+            required
           />
         </div>
         <div className="md:col-span-2">
@@ -486,6 +410,7 @@ const AddDoctor = ({ sidebar }) => {
                 accept="image/*"
                 onChange={handleImageChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                required
               />
             </div>
             {imagePreview && (
@@ -497,10 +422,8 @@ const AddDoctor = ({ sidebar }) => {
         </div>
       </div>
 
-      {/* Add Schedule Section */}
       <div className="mt-8 border-t pt-6">
         <h3 className="text-xl font-medium text-gray-800 mb-4">Consultation Schedule</h3>
-        
         {formData.availability.map((day, dayIndex) => (
           <div key={day.day} className="mb-6 bg-gray-50 rounded-lg p-4">
             <div className="flex items-center justify-between mb-4">
@@ -526,7 +449,6 @@ const AddDoctor = ({ sidebar }) => {
                 </button>
               )}
             </div>
-
             {day.isAvailable && (
               <div className="space-y-3">
                 {day.timeSlots.map((slot, slotIndex) => (
@@ -535,28 +457,31 @@ const AddDoctor = ({ sidebar }) => {
                       <label className="block text-sm text-gray-600 mb-1">Start Time</label>
                       <input
                         type="time"
-                        value={slot.startTime}
+                        value={slot.startTime || ''}
                         onChange={(e) => handleTimeSlotChange(dayIndex, slotIndex, 'startTime', e.target.value)}
                         className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        required
                       />
                     </div>
                     <div>
                       <label className="block text-sm text-gray-600 mb-1">End Time</label>
                       <input
                         type="time"
-                        value={slot.endTime}
+                        value={slot.endTime || ''}
                         onChange={(e) => handleTimeSlotChange(dayIndex, slotIndex, 'endTime', e.target.value)}
                         className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        required
                       />
                     </div>
                     <div>
                       <label className="block text-sm text-gray-600 mb-1">Max Patients</label>
                       <input
                         type="number"
-                        value={slot.maxPatients}
+                        value={slot.maxPatients || 4}
                         onChange={(e) => handleTimeSlotChange(dayIndex, slotIndex, 'maxPatients', e.target.value)}
                         min="1"
                         className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        required
                       />
                     </div>
                   </div>
@@ -569,35 +494,27 @@ const AddDoctor = ({ sidebar }) => {
     </div>
   );
 
-  const renderProgressBar = () => {
-    return (
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-2">
-          <div 
-            className={`text-sm font-medium ${step >= 1 ? 'text-blue-600' : 'text-gray-500'}`}
-          >
-            Basic Info
-          </div>
-          <div 
-            className={`text-sm font-medium ${step >= 2 ? 'text-blue-600' : 'text-gray-500'}`}
-          >
-            Professional
-          </div>
-          <div 
-            className={`text-sm font-medium ${step >= 3 ? 'text-blue-600' : 'text-gray-500'}`}
-          >
-            Practice
-          </div>
+  const renderProgressBar = () => (
+    <div className="mb-8">
+      <div className="flex justify-between items-center mb-2">
+        <div className={`text-sm font-medium ${step >= 1 ? 'text-blue-600' : 'text-gray-500'}`}>
+          Basic Info
         </div>
-        <div className="overflow-hidden h-2 rounded-full bg-gray-200">
-          <div
-            className="h-full bg-blue-600 transition-all duration-300"
-            style={{ width: `${(step / 3) * 100}%` }}
-          ></div>
+        <div className={`text-sm font-medium ${step >= 2 ? 'text-blue-600' : 'text-gray-500'}`}>
+          Professional
+        </div>
+        <div className={`text-sm font-medium ${step >= 3 ? 'text-blue-600' : 'text-gray-500'}`}>
+          Practice
         </div>
       </div>
-    );
-  };
+      <div className="overflow-hidden h-2 rounded-full bg-gray-200">
+        <div
+          className="h-full bg-blue-600 transition-all duration-300"
+          style={{ width: `${(step / 3) * 100}%` }}
+        ></div>
+      </div>
+    </div>
+  );
 
   return (
     <div className={`p-6 ${sidebar ? 'ml-64' : 'ml-20'} transition-all duration-300 mt-14`}>
@@ -607,7 +524,6 @@ const AddDoctor = ({ sidebar }) => {
             <h1 className="text-2xl font-bold text-white">Add New Doctor</h1>
             <p className="text-blue-100 mt-1">Complete the form below to add a new doctor to the system</p>
           </div>
-          
           <div className="p-8">
             {error && (
               <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded-md">
@@ -619,7 +535,6 @@ const AddDoctor = ({ sidebar }) => {
                 </div>
               </div>
             )}
-            
             {success && (
               <div className="bg-green-50 border-l-4 border-green-500 text-green-700 p-4 mb-6 rounded-md">
                 <div className="flex items-center">
@@ -630,11 +545,9 @@ const AddDoctor = ({ sidebar }) => {
                 </div>
               </div>
             )}
-            
             <form onSubmit={handleSubmit}>
               {renderProgressBar()}
               {renderFormFields()}
-              
               <div className="mt-8 flex justify-between">
                 <button
                   type="button"
@@ -643,7 +556,6 @@ const AddDoctor = ({ sidebar }) => {
                 >
                   Previous
                 </button>
-                
                 {step < 3 ? (
                   <button
                     type="button"

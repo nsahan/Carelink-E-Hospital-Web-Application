@@ -9,5 +9,6 @@ router.post("/medicines", medicineController.addMedicine);
 router.put("/medicines/:id", medicineController.updateMedicine);
 router.delete("/medicines/:id", medicineController.deleteMedicine);
 router.post("/medicines/notify-suppliers", medicineController.notifySuppliers); // Only keep notification route
+router.get("/medicines/categories", medicineController.getMedicineCategories);
 
 export default router;

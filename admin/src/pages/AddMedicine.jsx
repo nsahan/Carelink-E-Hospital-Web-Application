@@ -16,6 +16,15 @@ const AddMedicine = ({ sidebar }) => {
     reorderQuantity: '',
     autoReorder: false
   });
+  const [categories, setCategories] = useState([
+    'tablets',
+    'capsules',
+    'syrups',
+    'injections',
+    'others'
+  ]);
+  const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
+  const [newCategory, setNewCategory] = useState('');
   const [medicines, setMedicines] = useState([]);
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -28,6 +37,62 @@ const AddMedicine = ({ sidebar }) => {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.id]: e.target.value });
+  };
+
+  const handleCategoryChange = (e) => {
+    if (e.target.value === '__add_new__') {
+      setShowNewCategoryInput(true);
+    } else {
+      setFormData({ ...formData, category: e.target.value });
+      setShowNewCategoryInput(false);
+      setNewCategory('');
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await axios.get('http://localhost:9000/v1/api/medicines/categories');
+      setCategories(response.data || []);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const handleAddNewCategory = async (e) => {
+    e.preventDefault();
+    const trimmed = newCategory.trim();
+    if (!trimmed) return;
+    if (categories.includes(trimmed)) {
+      setFormData({ ...formData, category: trimmed });
+      setShowNewCategoryInput(false);
+      setNewCategory('');
+      return;
+    }
+    // Add new category to backend by creating a dummy medicine (workaround)
+    try {
+      await axios.post('http://localhost:9000/v1/api/medicines', {
+        name: `__dummy__${Date.now()}`,
+        description: 'Temporary dummy for category creation',
+        genericName: '',
+        expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        price: 1,
+        category: trimmed,
+        stock: 1,
+      });
+      await fetchCategories();
+      setCategories((prev) => [...prev, trimmed]);
+      setFormData({ ...formData, category: trimmed });
+    } catch (error) {
+      // fallback: just add locally
+      setCategories((prev) => [...prev, trimmed]);
+      setFormData({ ...formData, category: trimmed });
+    }
+    setShowNewCategoryInput(false);
+    setNewCategory('');
   };
 
   const handleUpdate = async (medicine) => {
@@ -94,6 +159,7 @@ const AddMedicine = ({ sidebar }) => {
             autoReorder: false
           });
           alert('Medicine added successfully!');
+          await fetchCategories();
         }
       }
       fetchMedicines();
@@ -132,13 +198,13 @@ const AddMedicine = ({ sidebar }) => {
   const checkExpiryDates = () => {
     const today = new Date();
     const alertThresholdDays = 5;
-    
+
     const expiringMedicines = medicines.filter(medicine => {
       const expiryDate = new Date(medicine.expiryDate);
       const daysUntilExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
       return daysUntilExpiry <= alertThresholdDays && daysUntilExpiry > 0;
     });
-    
+
     setExpiryAlerts(expiringMedicines);
   };
 
@@ -174,9 +240,9 @@ const AddMedicine = ({ sidebar }) => {
           reorderService.getReorderRequests(),
           reorderService.checkStock()
         ]);
-        
+
         setReorderRequests(reorderData || []);
-        
+
         if (stockData?.reorderNeeded) {
           setNotificationMsg(`${stockData.lowStockItems.length} items need reordering`);
           setShowNotification(true);
@@ -206,39 +272,12 @@ const AddMedicine = ({ sidebar }) => {
 
   const renderReorderSettings = (medicine) => (
     <div className="bg-white p-4 rounded-lg shadow-md">
-      <h3 className="font-semibold mb-4">Reorder Settings</h3>
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium mb-1">Reorder Level</label>
-          <input
-            type="number"
-            value={formData.reorderLevel}
-            onChange={(e) => handleChange(e)}
-            id="reorderLevel"
-            className="w-full p-2 border rounded"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Reorder Quantity</label>
-          <input
-            type="number"
-            value={formData.reorderQuantity}
-            onChange={(e) => handleChange(e)}
-            id="reorderQuantity"
-            className="w-full p-2 border rounded"
-          />
-        </div>
+
+
       </div>
       <div className="mt-4">
-        <label className="flex items-center">
-          <input
-            type="checkbox"
-            checked={formData.autoReorder}
-            onChange={(e) => setFormData({...formData, autoReorder: e.target.checked})}
-            className="mr-2"
-          />
-          <span>Enable Auto-Reorder</span>
-        </label>
+
       </div>
     </div>
   );
@@ -255,19 +294,19 @@ const AddMedicine = ({ sidebar }) => {
       {reorderRequests.length > 0 ? (
         <div className="space-y-4">
           {reorderRequests.map((request) => (
-            <div key={request._id} 
+            <div key={request._id}
               className="flex items-center justify-between p-4 bg-yellow-50 rounded-lg border border-yellow-200">
               <div className="flex items-center space-x-4">
                 <AlertCircle className="text-yellow-500 h-5 w-5" />
                 <div>
                   <p className="font-medium">{request.medicineId.name}</p>
                   <p className="text-sm text-gray-600">
-                    Current Stock: {request.medicineId.stock} | 
+                    Current Stock: {request.medicineId.stock} |
                     Reorder Quantity: {request.quantity}
                   </p>
                 </div>
               </div>
-              
+
               {request.status === 'pending' && (
                 <button
                   onClick={() => handleApproveReorder(request._id)}
@@ -285,6 +324,21 @@ const AddMedicine = ({ sidebar }) => {
       )}
     </div>
   );
+
+  // Delete a category (removes from UI, does not affect backend medicines)
+  const handleDeleteCategory = (cat) => {
+    // Prevent deleting if category is in use by any medicine
+    const inUse = medicines.some(med => med.category === cat);
+    if (inUse) {
+      alert(`Cannot delete category "${cat}" because it is used by some medicines.`);
+      return;
+    }
+    setCategories(categories.filter(c => c !== cat));
+    // If the deleted category was selected, clear selection
+    if (formData.category === cat) {
+      setFormData({ ...formData, category: '' });
+    }
+  };
 
   return (
     <div className={`p-6 ${sidebar ? 'ml-64' : 'ml-20'} transition-all duration-300 mt-12`}>
@@ -329,11 +383,11 @@ const AddMedicine = ({ sidebar }) => {
                   {expiryAlerts.length} {expiryAlerts.length === 1 ? 'Medicine' : 'Medicines'}
                 </span>
               </div>
-              
+
               <div className="space-y-3">
                 {expiryAlerts.map(medicine => (
-                  <div 
-                    key={medicine._id} 
+                  <div
+                    key={medicine._id}
                     className="alert-item bg-gradient-to-r from-yellow-50 to-red-50 p-4 rounded-lg border border-red-200 hover:shadow-lg transition-all duration-300"
                   >
                     <div className="flex justify-between items-center">
@@ -422,20 +476,72 @@ const AddMedicine = ({ sidebar }) => {
             <label htmlFor="category" className="block text-gray-700 text-sm font-bold mb-2">
               Category
             </label>
+            <div className="flex gap-2 flex-wrap mb-2">
+              {categories.map((cat, idx) => (
+                <span
+                  key={`cat-chip-${cat}-${idx}`}
+                  className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 border border-gray-300 mr-2 mb-2`}
+                >
+                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteCategory(cat)}
+                    className="ml-2 text-red-500 hover:text-red-700 focus:outline-none"
+                    title="Delete category"
+                  >
+                    &times;
+                  </button>
+                </span>
+              ))}
+            </div>
             <select
               id="category"
               required
               value={formData.category}
-              onChange={handleChange}
+              onChange={handleCategoryChange}
               className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             >
               <option value="">Select category</option>
-              <option value="tablets">Tablets</option>
-              <option value="capsules">Capsules</option>
-              <option value="syrups">Syrups</option>
-              <option value="injections">Injections</option>
-              <option value="others">Others</option>
+              {/* Ensure unique keys for each category */}
+              {categories.map((cat, idx) => (
+                <option key={`${cat}-${idx}`} value={cat}>
+                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                </option>
+              ))}
+              <option value="__add_new__">Add new category...</option>
             </select>
+            {showNewCategoryInput && (
+              <div className="mt-2 flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={newCategory}
+                  onChange={e => setNewCategory(e.target.value)}
+                  placeholder="Enter new category"
+                  className="shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  autoFocus
+                  required
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      handleAddNewCategory(e);
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddNewCategory}
+                  className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+                >
+                  Add
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowNewCategoryInput(false); setNewCategory(''); }}
+                  className="bg-gray-400 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="mb-6">
@@ -448,7 +554,7 @@ const AddMedicine = ({ sidebar }) => {
           >
             {editMode ? 'Update Medicine' : 'Add Medicine'}
           </button>
-          
+
           {editMode && (
             <button
               type="button"

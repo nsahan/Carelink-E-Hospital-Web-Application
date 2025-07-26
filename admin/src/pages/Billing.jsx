@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Download, Filter, Search, CreditCard, Truck, AlertTriangle, Check, Package } from 'lucide-react';
+import { Download, Filter, Search, CreditCard, Truck, AlertTriangle, Check, Package, User, MapPin, Phone, Clock, AlertCircle } from 'lucide-react';
 import { Select, MenuItem, FormControl } from '@mui/material';
 import { toast } from 'react-toastify';
 
@@ -31,8 +31,8 @@ const PaymentMethodsTable = ({ orders }) => {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 text-xs font-semibold rounded-full 
-                    ${order.paymentMethod === 'card' 
-                      ? 'bg-green-100 text-green-800' 
+                    ${order.paymentMethod === 'card'
+                      ? 'bg-green-100 text-green-800'
                       : 'bg-blue-100 text-blue-800'}`}
                   >
                     {order.paymentMethod === 'card' ? 'Card Payment' : 'Cash on Delivery'}
@@ -43,13 +43,13 @@ const PaymentMethodsTable = ({ orders }) => {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 text-xs font-semibold rounded-full 
-                    ${order.status === 'completed' 
+                    ${order.status === 'completed'
                       ? 'bg-green-100 text-green-800'
                       : order.status === 'pending'
-                      ? 'bg-yellow-100 text-yellow-800'
-                      : order.status === 'tracking_required'
-                      ? 'bg-yellow-100 text-yellow-800'
-                      : 'bg-red-100 text-red-800'}`}
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : order.status === 'tracking_required'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-red-100 text-red-800'}`}
                   >
                     {order.status}
                   </span>
@@ -75,6 +75,16 @@ const Billing = () => {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [error, setError] = useState(null);
+
+  // Add new state for delete confirmation
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState(null);
+
+  // Add new state for delivery service
+  const [deliveryPersonnel, setDeliveryPersonnel] = useState([]);
+  const [showAssignDeliveryModal, setShowAssignDeliveryModal] = useState(false);
+  const [selectedOrderForDelivery, setSelectedOrderForDelivery] = useState(null);
+  const [deliveryLoading, setDeliveryLoading] = useState(false);
 
   const getStatusBadgeClass = (status) => {
     const baseClasses = "px-2 py-1 rounded-full text-xs font-medium";
@@ -145,9 +155,89 @@ const Billing = () => {
     }
   };
 
+  // Fetch delivery personnel
+  const fetchDeliveryPersonnel = async () => {
+    try {
+      setDeliveryLoading(true);
+      const response = await axios.get('http://localhost:9000/api/delivery/all', {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('atoken')}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (response.data.success) {
+        setDeliveryPersonnel(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching delivery personnel:', error);
+      toast.error('Failed to fetch delivery personnel');
+    } finally {
+      setDeliveryLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchOrders();
+    fetchDeliveryPersonnel();
   }, []);
+
+  // Handle delivery assignment
+  const handleAssignDelivery = async (orderId, deliveryPersonnelId) => {
+    try {
+      const response = await axios.put(
+        `http://localhost:9000/v1/api/orders/${orderId}/assign-to-delivery`,
+        { deliveryPersonnelId },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('atoken')}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.data.success) {
+        setOrders(orders.map(order =>
+          order._id === orderId
+            ? { ...order, deliveryPersonnel: response.data.deliveryPersonnel }
+            : order
+        ));
+        toast.success('Delivery personnel assigned successfully');
+        setShowAssignDeliveryModal(false);
+        setSelectedOrderForDelivery(null);
+      }
+    } catch (error) {
+      console.error('Error assigning delivery:', error);
+      toast.error('Failed to assign delivery personnel');
+    }
+  };
+
+  // Handle delivery status update
+  const handleDeliveryStatusUpdate = async (orderId, deliveryStatus) => {
+    try {
+      const response = await axios.put(
+        `http://localhost:9000/v1/api/orders/${orderId}/delivery-status`,
+        { deliveryStatus },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('atoken')}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.data.success) {
+        setOrders(orders.map(order =>
+          order._id === orderId
+            ? { ...order, deliveryStatus: deliveryStatus }
+            : order
+        ));
+        toast.success('Delivery status updated successfully');
+      }
+    } catch (error) {
+      console.error('Error updating delivery status:', error);
+      toast.error('Failed to update delivery status');
+    }
+  };
 
   const handleStatusChange = async (orderId, newStatus) => {
     try {
@@ -214,6 +304,29 @@ const Billing = () => {
     }
   };
 
+  const handleDeleteOrder = async (orderId) => {
+    try {
+      const response = await axios.delete(
+        `http://localhost:9000/v1/api/orders/${orderId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('atoken')}`,
+          },
+        }
+      );
+
+      if (response.status === 200) {
+        setOrders(orders.filter(order => order._id !== orderId));
+        toast.success('Order deleted successfully');
+        setShowDeleteConfirm(false);
+        setOrderToDelete(null);
+      }
+    } catch (error) {
+      console.error('Error deleting order:', error);
+      toast.error(error.response?.data?.message || 'Failed to delete order');
+    }
+  };
+
   const filteredOrders = orders.filter(order => {
     const matchesStatus = filterStatus === 'all' || order.status === filterStatus;
     const matchesSearch =
@@ -231,9 +344,8 @@ const Billing = () => {
             <button
               key={status}
               onClick={() => handleStatusChange(order._id, status)}
-              className={`w-full p-3 rounded-lg flex items-center justify-between capitalize ${
-                order.status === status ? getStatusColor(status) : 'hover:bg-gray-50'
-              }`}
+              className={`w-full p-3 rounded-lg flex items-center justify-between capitalize ${order.status === status ? getStatusColor(status) : 'hover:bg-gray-50'
+                }`}
             >
               <div className="flex items-center">
                 {getStatusIcon(status)}
@@ -323,6 +435,90 @@ const Billing = () => {
           </div>
         </div>
 
+        {/* Delivery Information */}
+        <div className="mt-6">
+          <h3 className="font-medium text-gray-900 mb-4">Delivery Information</h3>
+          {order.deliveryPersonnel ? (
+            <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium text-blue-900">Assigned Delivery Personnel</h4>
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${order.deliveryStatus === 'delivered' ? 'bg-green-100 text-green-800' :
+                  order.deliveryStatus === 'in_transit' ? 'bg-blue-100 text-blue-800' :
+                    order.deliveryStatus === 'picked_up' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-gray-100 text-gray-800'
+                  }`}>
+                  {order.deliveryStatus || 'assigned'}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-blue-800"><strong>Name:</strong> {order.deliveryPersonnel.name}</p>
+                  <p className="text-sm text-blue-800"><strong>ID:</strong> {order.deliveryPersonnel.employeeId}</p>
+                  <p className="text-sm text-blue-800"><strong>Vehicle:</strong> {order.deliveryPersonnel.vehicleType} - {order.deliveryPersonnel.vehicleNumber}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-blue-800"><strong>Area:</strong> {order.deliveryPersonnel.assignedArea}</p>
+                  <p className="text-sm text-blue-800"><strong>Status:</strong> {order.deliveryPersonnel.isOnline ? 'Online' : 'Offline'}</p>
+                  <p className="text-sm text-blue-800"><strong>Total Deliveries:</strong> {order.deliveryPersonnel.totalDeliveries || 0}</p>
+                </div>
+              </div>
+
+              {/* Delivery Status Update */}
+              <div className="mt-4 pt-4 border-t border-blue-200">
+                <h5 className="font-medium text-blue-900 mb-2">Update Delivery Status</h5>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleDeliveryStatusUpdate(order._id, 'picked_up')}
+                    className={`px-3 py-1 rounded text-xs font-medium ${order.deliveryStatus === 'picked_up'
+                      ? 'bg-yellow-600 text-white'
+                      : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                      }`}
+                  >
+                    Picked Up
+                  </button>
+                  <button
+                    onClick={() => handleDeliveryStatusUpdate(order._id, 'in_transit')}
+                    className={`px-3 py-1 rounded text-xs font-medium ${order.deliveryStatus === 'in_transit'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                      }`}
+                  >
+                    In Transit
+                  </button>
+                  <button
+                    onClick={() => handleDeliveryStatusUpdate(order._id, 'delivered')}
+                    className={`px-3 py-1 rounded text-xs font-medium ${order.deliveryStatus === 'delivered'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-green-100 text-green-800 hover:bg-green-200'
+                      }`}
+                  >
+                    Delivered
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-medium text-gray-900">No Delivery Personnel Assigned</h4>
+                  <p className="text-sm text-gray-600">Assign a delivery personnel to this order</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedOrderForDelivery(order);
+                    setShowAssignDeliveryModal(true);
+                  }}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center"
+                >
+                  <User className="w-4 h-4 mr-1" />
+                  Assign Delivery
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {order.status === 'tracking_required' && (
           <div className="mt-4">
             <button
@@ -332,6 +528,18 @@ const Billing = () => {
               <Truck className="w-4 h-4 mr-1" />
               Track Order
             </button>
+          </div>
+        )}
+
+        {order.status === 'cancelled' && (
+          <div className="mt-4 bg-red-50 border border-red-200 p-4 rounded-lg">
+            <h4 className="font-semibold text-red-800 mb-2">Cancellation Details</h4>
+            <p className="text-sm text-red-700">
+              <strong>Reason:</strong> {order.cancellationReason || 'Not specified'}
+            </p>
+            <p className="text-sm text-red-700">
+              <strong>Cancelled At:</strong> {new Date(order.cancelledAt).toLocaleString()}
+            </p>
           </div>
         )}
 
@@ -354,6 +562,122 @@ const Billing = () => {
     </div>
   );
 
+  const DeleteConfirmationModal = ({ order, onClose }) => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
+        <h3 className="text-lg font-bold mb-4">Confirm Delete</h3>
+        <p className="text-gray-600 mb-6">
+          Are you sure you want to delete order #{order._id.slice(-6)}? This action cannot be undone.
+        </p>
+        <div className="flex justify-end gap-4">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => handleDeleteOrder(order._id)}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Delivery Assignment Modal
+  const AssignDeliveryModal = ({ order, onClose }) => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg font-bold">Assign Delivery Personnel</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">×</button>
+        </div>
+
+        <div className="mb-6">
+          <h4 className="font-medium text-gray-900 mb-2">Order Details</h4>
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <p className="text-sm"><strong>Order ID:</strong> #{order._id.slice(-6)}</p>
+            <p className="text-sm"><strong>Customer:</strong> {order.customerDetails?.fullName}</p>
+            <p className="text-sm"><strong>Address:</strong> {order.shippingAddress}</p>
+            <p className="text-sm"><strong>Amount:</strong> Rs.{order.totalAmount}</p>
+          </div>
+        </div>
+
+        <div className="mb-6">
+          <h4 className="font-medium text-gray-900 mb-4">Available Delivery Personnel</h4>
+          {deliveryLoading ? (
+            <div className="text-center py-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+              <p className="mt-2 text-sm text-gray-600">Loading delivery personnel...</p>
+            </div>
+          ) : deliveryPersonnel.length === 0 ? (
+            <div className="text-center py-4">
+              <Truck className="mx-auto text-gray-400 mb-2" size={32} />
+              <p className="text-gray-600">No delivery personnel available</p>
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              {deliveryPersonnel
+                .filter(personnel => personnel.status === 'active')
+                .map((personnel) => (
+                  <div
+                    key={personnel._id}
+                    className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer"
+                    onClick={() => handleAssignDelivery(order._id, personnel._id)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                          <User className="w-5 h-5 text-indigo-600" />
+                        </div>
+                        <div>
+                          <h5 className="font-medium text-gray-900">{personnel.name}</h5>
+                          <p className="text-sm text-gray-500">{personnel.employeeId}</p>
+                          <div className="flex items-center space-x-4 mt-1">
+                            <span className="flex items-center text-xs text-gray-500">
+                              <MapPin className="w-3 h-3 mr-1" />
+                              {personnel.assignedArea}
+                            </span>
+                            <span className="flex items-center text-xs text-gray-500">
+                              <Truck className="w-3 h-3 mr-1" />
+                              {personnel.vehicleType} - {personnel.vehicleNumber}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${personnel.isOnline
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-gray-100 text-gray-800'
+                          }`}>
+                          {personnel.isOnline ? 'Online' : 'Offline'}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {personnel.totalDeliveries || 0} deliveries
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-4 pt-4 border-t">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   const handleStatusUpdate = async (orderId, status) => {
     try {
       const response = await axios.put(
@@ -365,7 +689,7 @@ const Billing = () => {
       );
 
       if (response.data.success) {
-        setOrders(orders.map(order => 
+        setOrders(orders.map(order =>
           order._id === orderId ? { ...order, status } : order
         ));
         toast.success('Order status updated successfully');
@@ -375,8 +699,37 @@ const Billing = () => {
     }
   };
 
+  const handleGenerateMedicineReport = async () => {
+    try {
+      const response = await axios.get(
+        'http://localhost:9000/v1/api/orders/medicine-report',  // Updated endpoint URL
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('atoken')}`,
+          },
+          responseType: 'blob',
+        }
+      );
+
+      // Create blob link to download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `medicine_report_${new Date().toISOString().split('T')[0]}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success('Medicine report generated successfully');
+    } catch (error) {
+      console.error('Error generating medicine report:', error);
+      toast.error('Failed to generate medicine report');
+    }
+  };
+
   return (
-    <div className="p-6">
+    <div className="p-12 max-w-7xl min-h-[210px] mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Order Management</h1>
         <div className="flex items-center space-x-4">
@@ -404,6 +757,11 @@ const Billing = () => {
             <option value="tracking_required">Tracking Required</option>
           </select>
         </div>
+      </div>
+
+      {/* Add this button near your other action buttons */}
+      <div className="flex gap-4 mb-6">
+
       </div>
 
       {loading && (
@@ -440,6 +798,7 @@ const Billing = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Medicines</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Delivery</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
               </tr>
             </thead>
@@ -472,6 +831,34 @@ const Billing = () => {
                     <span className={getStatusBadgeClass(order.status)}>
                       {order.status}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {order.deliveryPersonnel ? (
+                      <div className="text-sm">
+                        <div className="font-medium text-gray-900">{order.deliveryPersonnel.name}</div>
+                        <div className="text-xs text-gray-500">{order.deliveryPersonnel.employeeId}</div>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${order.deliveryStatus === 'delivered' ? 'bg-green-100 text-green-800' :
+                          order.deliveryStatus === 'in_transit' ? 'bg-blue-100 text-blue-800' :
+                            order.deliveryStatus === 'picked_up' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-gray-100 text-gray-800'
+                          }`}>
+                          {order.deliveryStatus || 'assigned'}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-500">
+                        <div>No delivery assigned</div>
+                        <button
+                          onClick={() => {
+                            setSelectedOrderForDelivery(order);
+                            setShowAssignDeliveryModal(true);
+                          }}
+                          className="text-indigo-600 hover:text-indigo-900 text-xs mt-1"
+                        >
+                          Assign Delivery
+                        </button>
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap flex gap-2">
                     <button
@@ -512,6 +899,15 @@ const Billing = () => {
                         <MenuItem value="tracking_required">Tracking Required</MenuItem>
                       </Select>
                     </FormControl>
+                    <button
+                      onClick={() => {
+                        setOrderToDelete(order);
+                        setShowDeleteConfirm(true);
+                      }}
+                      className="text-red-600 hover:text-red-900"
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -536,6 +932,26 @@ const Billing = () => {
           onClose={() => {
             setShowDetailsModal(false);
             setSelectedOrder(null);
+          }}
+        />
+      )}
+
+      {showDeleteConfirm && orderToDelete && (
+        <DeleteConfirmationModal
+          order={orderToDelete}
+          onClose={() => {
+            setShowDeleteConfirm(false);
+            setOrderToDelete(null);
+          }}
+        />
+      )}
+
+      {showAssignDeliveryModal && selectedOrderForDelivery && (
+        <AssignDeliveryModal
+          order={selectedOrderForDelivery}
+          onClose={() => {
+            setShowAssignDeliveryModal(false);
+            setSelectedOrderForDelivery(null);
           }}
         />
       )}

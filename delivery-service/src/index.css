@@ -1,0 +1,17 @@
+/* Basic global styles for Delivery Service frontend */
+
+body {
+    margin: 0;
+    font-family: system-ui, sans-serif;
+    background: #f8fafc;
+    color: #222;
+}
+
+#root {
+    min-height: 100vh;
+}
+
+/* If using Tailwind, import it here */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

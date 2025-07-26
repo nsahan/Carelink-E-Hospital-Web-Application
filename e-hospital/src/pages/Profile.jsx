@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { assets } from '../assets/assets';
-import { Edit2, Save, Camera } from 'lucide-react';
+import { Edit2, Save, Camera, User, Phone, Mail, MapPin, Calendar, Droplets, Weight, Ruler, CheckCircle, XCircle } from 'lucide-react';
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -162,229 +162,202 @@ const Profile = () => {
     }
   };
 
-  const FormField = ({ label, value, editField, type = 'text' }) => (
-    <div className="mb-4">
-      <p className="text-sm font-medium text-gray-500">{label}</p>
+  const FormField = ({ label, value, editField, icon: Icon, type = 'text' }) => (
+    <div className="group">
+      <div className="flex items-center gap-2 mb-2">
+        {Icon && <Icon className="w-4 h-4 text-blue-500" />}
+        <label className="text-sm font-semibold text-gray-700">{label}</label>
+      </div>
       {editMode ? (
-        editField
+        <div className="relative">
+          {editField}
+        </div>
       ) : (
-        <p className="text-base font-medium text-gray-800">{value}</p>
+        <div className="bg-white p-3 rounded-lg border border-gray-200 group-hover:border-blue-300 transition-colors">
+          <p className="text-gray-800 font-medium">{value}</p>
+        </div>
       )}
     </div>
   );
 
+  // Calculate age from date of birth
+  const calculateAge = (dob) => {
+    const today = new Date();
+    const birthDate = new Date(dob);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
   return (
-    <div className="bg-white rounded-lg shadow-md max-w-2xl mx-auto p-6">
-      {message.text && (
-        <div className={`mb-4 p-3 rounded ${
-          message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-        }`}>
-          {message.text}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-6 px-4">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">My Profile</h1>
+          <p className="text-gray-600">Manage your personal information and preferences</p>
         </div>
-      )}
-      <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-6">
-        <div className="relative group">
-          <img 
-            src={userData.image} 
-            alt="Profile" 
-            className={`w-32 h-32 rounded-full object-cover border-4 ${
-              imageLoading ? 'opacity-50' : ''
-            } border-gray-100 shadow cursor-pointer`}
-            onClick={handleImageClick}
-          />
-          <div 
-            className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-            onClick={handleImageClick}
-          >
-            {imageLoading ? (
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white" />
+
+        {/* Success/Error Messages */}
+        {message.text && (
+          <div className={`mb-6 p-4 rounded-xl flex items-center gap-3 ${
+            message.type === 'success' 
+              ? 'bg-green-50 border border-green-200 text-green-800' 
+              : 'bg-red-50 border border-red-200 text-red-800'
+          }`}>
+            {message.type === 'success' ? (
+              <CheckCircle className="w-5 h-5 text-green-600" />
             ) : (
-              <Camera className="text-white" size={24} />
+              <XCircle className="w-5 h-5 text-red-600" />
             )}
+            <span className="font-medium">{message.text}</span>
           </div>
-          <input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            accept="image/*"
-            onChange={handleImageChange}
-            disabled={imageLoading}
-          />
-          {imageError && (
-            <div className="absolute -bottom-8 left-0 right-0 text-center text-red-500 text-sm">
-              {imageError}
+        )}
+
+        {/* Profile Header Card */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-7 overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 h-32"></div>
+          <div className="relative px-7 pb-6">
+            <div className="flex flex-col md:flex-row items-center md:items-end gap-6">
+              {/* Profile Image */}
+              <div className="relative -mt-16 group">
+                <div className="relative">
+                  <img 
+                    src={userData.image} 
+                    alt="Profile" 
+                    className={`w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg cursor-pointer transition-all duration-300 ${
+                      imageLoading ? 'opacity-50' : 'group-hover:shadow-xl'
+                    }`}
+                    onClick={handleImageClick}
+                  />
+                  <div 
+                    className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    onClick={handleImageClick}
+                  >
+                    {imageLoading ? (
+                      <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent" />
+                    ) : (
+                      <Camera className="text-white" size={24} />
+                    )}
+                  </div>
+                  <div className="absolute -bottom-2 -right-2 bg-blue-500 rounded-full p-2 shadow-lg">
+                    <Camera className="w-4 h-4 text-white" />
+                  </div>
+                </div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  disabled={imageLoading}
+                />
+                {imageError && (
+                  <div className="absolute -bottom-8 left-0 right-0 text-center text-red-500 text-sm font-medium">
+                    {imageError}
+                  </div>
+                )}
+              </div>
+
+              {/* User Info */}
+              <div className="flex-1 text-center md:text-left">
+                {editMode ? (
+                  <input
+                    type="text"
+                    value={userData.name}
+                    onChange={(e) => setUserData({ ...userData, name: e.target.value })}
+                    className="text-3xl font-bold border-b-2 border-blue-500 focus:outline-none bg-transparent pb-1 w-full"
+                  />
+                ) : (
+                  <h2 className="text-3xl font-bold text-gray-900 mb-1">{userData.name}</h2>
+                )}
+                <div className="flex items-center justify-center md:justify-start gap-2 text-gray-600 mb-2">
+                  <Mail className="w-4 h-4" />
+                  <span>{userData.email}</span>
+                </div>
+                <div className="flex items-center justify-center md:justify-start gap-4 text-sm text-gray-500">
+                  <span className="flex items-center gap-1">
+                  </span>
+                  <span className="flex items-center gap-1">
+                  </span>
+                </div>
+              </div>
+
+              {/* Edit Button */}
+             
             </div>
-          )}
-        </div>
-        <div className="flex-1 text-center md:text-left">
-          {editMode ? (
-            <input
-              type="text"
-              value={userData.name}
-              onChange={(e) => setUserData({ ...userData, name: e.target.value })}
-              className="text-2xl font-bold border-b-2 border-blue-500 focus:outline-none w-full"
-            />
-          ) : (
-            <h1 className="text-2xl font-bold text-gray-800">{userData.name}</h1>
-          )}
-          <p className="text-gray-500">{userData.email}</p>
-        </div>
-        <button
-          onClick={editMode ? handleSave : () => setEditMode(true)}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-            editMode
-              ? 'bg-green-500 hover:bg-green-600'
-              : 'bg-blue-500 hover:bg-blue-600'
-          } text-white transition-colors duration-300`}
-        >
-          {editMode ? (
-            <>
-              <Save size={16} />
-              <span>Save</span>
-            </>
-          ) : (
-            <>
-              <Edit2 size={16} />
-              <span>Edit</span>
-            </>
-          )}
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Contact Information */}
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <h2 className="text-lg font-semibold text-gray-700 mb-4 border-b pb-2">
-            Contact Information
-          </h2>
-          
-          <FormField 
-            label="Email" 
-            value={userData.email} 
-            editField={
-              <input
-                type="email"
-                value={userData.email}
-                onChange={(e) => setUserData({ ...userData, email: e.target.value })}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
-              />
-            }
-          />
-          
-          <FormField 
-            label="Phone" 
-            value={userData.phone} 
-            editField={
-              <input
-                type="tel"
-                value={userData.phone}
-                onChange={(e) => setUserData({ ...userData, phone: e.target.value })}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
-              />
-            }
-          />
-          
-          <FormField 
-            label="Address" 
-            value={userData.address} 
-            editField={
-              <input
-                type="text"
-                value={userData.address}
-                onChange={(e) => setUserData({ ...userData, address: e.target.value })}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
-              />
-            }
-          />
-        </div>
-
-        {/* Basic Information */}
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <h2 className="text-lg font-semibold text-gray-700 mb-4 border-b pb-2">
-            Basic Information
-          </h2>
-          
-          <FormField 
-            label="Gender" 
-            value={userData.gender} 
-            editField={
-              <select
-                value={userData.gender}
-                onChange={(e) => setUserData({ ...userData, gender: e.target.value })}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
-              >
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-              </select>
-            }
-          />
-          
-          <FormField 
-            label="Birthday" 
-            value={userData.dob} 
-            editField={
-              <input
-                type="date"
-                value={userData.dob}
-                onChange={(e) => setUserData({ ...userData, dob: e.target.value })}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
-              />
-            }
-          />
-          
-          <FormField 
-            label="Blood Group" 
-            value={userData.bloodGroup} 
-            editField={
-              <select
-                value={userData.bloodGroup}
-                onChange={(e) => setUserData({ ...userData, bloodGroup: e.target.value })}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
-              >
-                <option value="A+">A+</option>
-                <option value="B+">B+</option>
-                <option value="AB+">AB+</option>
-                <option value="O+">O+</option>
-                <option value="A-">A-</option>
-                <option value="B-">B-</option>
-                <option value="AB-">AB-</option>
-                <option value="O-">O-</option>
-              </select>
-            }
-          />
-          
-          <div className="grid grid-cols-2 gap-4">
-            <FormField 
-              label="Weight (kg)" 
-              value={`${userData.weight} kg`} 
-              editField={
-                <input
-                  type="number"
-                  value={userData.weight}
-                  onChange={(e) => setUserData({ ...userData, weight: e.target.value })}
-                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
-                />
-              }
-            />
-            
-            <FormField 
-              label="Height (ft)" 
-              value={`${userData.height} ft`} 
-              editField={
-                <input
-                  type="number"
-                  step="0.1"
-                  value={userData.height}
-                  onChange={(e) => setUserData({ ...userData, height: e.target.value })}
-                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
-                />
-              }
-            />
           </div>
         </div>
-      </div>
-    </div>
+
+        {/* Profile Information Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Contact Information */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="bg-blue-100 p-2 rounded-lg">
+                <Phone className="w-5 h-5 text-blue-600" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900">Contact Information</h3>
+            </div>
+            
+            <div className="space-y-6">
+              <FormField 
+                label="Email Address" 
+                value={userData.email} 
+                icon={Mail}
+                editField={
+                  <input
+                    type="email"
+                    value={userData.email}
+                    onChange={(e) => setUserData({ ...userData, email: e.target.value })}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  />
+                }
+              />
+              
+              <FormField 
+                label="Phone Number" 
+                value={userData.phone} 
+                icon={Phone}
+                editField={
+                  <input
+                    type="tel"
+                    value={userData.phone}
+                    onChange={(e) => setUserData({ ...userData, phone: e.target.value })}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  />
+                }
+              />
+              
+              <FormField 
+                label="Address" 
+                value={userData.address} 
+                icon={MapPin}
+                editField={
+                  <textarea
+                    value={userData.address}
+                    onChange={(e) => setUserData({ ...userData, address: e.target.value })}
+                    rows="3"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
+                  />
+                }
+              />
+            </div>
+          </div>
+
+
+       
+            
+          </div>
+        </div>
+
+        </div>
+      
+          
+      
   );
 };
 

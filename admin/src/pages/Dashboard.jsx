@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
-import { 
-  Box, 
-  Grid, 
-  Paper, 
-  Typography, 
-  Container, 
-  List, 
-  ListItem, 
-  ListItemText, 
-  Divider, 
-  Button, 
-  IconButton, 
-  useTheme, 
+import {
+  Box,
+  Grid,
+  Paper,
+  Typography,
+  Container,
+  List,
+  ListItem,
+  ListItemText,
+  Divider,
+  Button,
+  IconButton,
+  useTheme,
   useMediaQuery,
   Avatar,
   Badge,
@@ -29,8 +29,57 @@ import {
   TableCell,
   Snackbar,
   Card,
-  CardContent
+  CardContent,
+  Tabs,
+  Tab,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
+
+// Chart components
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  RadialLinearScale,
+  Title,
+  Tooltip as ChartTooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+import { Line, Bar, Doughnut, PolarArea } from 'react-chartjs-2';
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  RadialLinearScale,
+  Title,
+  ChartTooltip,
+  Legend,
+  Filler
+);
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CheckIcon from '@mui/icons-material/Check';
+import UpdateIcon from '@mui/icons-material/Update';
+import ErrorIcon from '@mui/icons-material/Error';
 
 // Icons
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
@@ -55,45 +104,17 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import DirectionsRunIcon from '@mui/icons-material/DirectionsRun';
 import DeleteIcon from '@mui/icons-material/Delete';
-
-// Chart components
-import { 
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  RadialLinearScale,
-  Title,
-  Tooltip as ChartTooltip,
-  Legend,
-  Filler
-} from 'chart.js';
-import { Line, Bar, Doughnut, PolarArea } from 'react-chartjs-2';
-import { keyframes } from '@mui/system';
-import { alpha } from '@mui/material/styles';
-
-// Import jsPDF
-import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
-import { format } from 'date-fns';
-
-// Register Chart.js components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  RadialLinearScale,
-  Title,
-  ChartTooltip,
-  Legend,
-  Filler
-);
+import EmailIcon from '@mui/icons-material/Email';
+import Rating from '@mui/material/Rating';
+import StarIcon from '@mui/icons-material/Star';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import EventIcon from '@mui/icons-material/Event';
+import ShoppingBasketIcon from '@mui/icons-material/ShoppingBasket';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import PrintIcon from '@mui/icons-material/Print';
+import DateRangeIcon from '@mui/icons-material/DateRange';
+import FilterListIcon from '@mui/icons-material/FilterList';
 
 // Configure Axios defaults
 const API_BASE_URL = 'http://localhost:9000';
@@ -126,118 +147,17 @@ api.interceptors.response.use(
   }
 );
 
-// Animation keyframes
-const pulseAnimation = keyframes`
-  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 82, 82, 0.7); }
-  70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(255, 82, 82, 0); }
-  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 82, 82, 0); }
-`;
-
-const blinkAnimation = keyframes`
-  0% { opacity: 1; }
-  50% { opacity: 0.5; }
-  100% { opacity: 1; }
-`;
-
-const floatAnimation = keyframes`
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-  100% { transform: translateY(0px); }
-`;
-
-const fadeInAnimation = keyframes`
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-`;
-
-// Sounds manager
-class SoundManager {
-  constructor() {
-    this.sounds = {
-      alert: new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'),
-      emergency: new Audio('https://assets.mixkit.co/active_storage/sfx/989/989-preview.mp3'),
-      notification: new Audio('https://assets.mixkit.co/active_storage/sfx/1629/1629-preview.mp3'),
-      success: new Audio('https://assets.mixkit.co/active_storage/sfx/1326/1326-preview.mp3')
-    };
-    
-    // Preload sounds
-    Object.values(this.sounds).forEach(sound => {
-      sound.load();
-      sound.volume = 0.5;
-    });
-    
-    this.intervals = {};
-    this.isEnabled = true;
-  }
-  
-  play(soundName, loop = false, duration = 0) {
-    if (!this.isEnabled) return;
-    
-    const sound = this.sounds[soundName];
-    if (!sound) return;
-    
-    if (loop && duration > 0) {
-      sound.loop = true;
-      sound.play();
-      
-      if (this.intervals[soundName]) {
-        clearTimeout(this.intervals[soundName]);
-      }
-      
-      this.intervals[soundName] = setTimeout(() => {
-        sound.pause();
-        sound.currentTime = 0;
-        sound.loop = false;
-      }, duration);
-    } else {
-      // Clone the sound to allow overlapping plays
-      const soundClone = sound.cloneNode();
-      soundClone.play();
-    }
-  }
-  
-  stop(soundName) {
-    const sound = this.sounds[soundName];
-    if (!sound) return;
-    
-    sound.pause();
-    sound.currentTime = 0;
-    sound.loop = false;
-    
-    if (this.intervals[soundName]) {
-      clearTimeout(this.intervals[soundName]);
-      delete this.intervals[soundName];
-    }
-  }
-  
-  stopAll() {
-    Object.keys(this.sounds).forEach(key => {
-      this.stop(key);
-    });
-  }
-  
-  toggleSound(enable) {
-    this.isEnabled = enable;
-    if (!enable) {
-      this.stopAll();
-    }
-  }
-}
-
-const soundManager = new SoundManager();
-
 // Enhanced Dashboard component
 const Dashboard = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
-  
+
   // State for data
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [admin, setAdmin] = useState({ name: 'Admin', avatar: null });
   const [notifications, setNotifications] = useState([]);
-  const [usersCount, setUsersCount] = useState(0);
   const [medicinesCount, setMedicinesCount] = useState(0);
   const [lowStockMedicines, setLowStockMedicines] = useState([]);
   const [expiringMedicines, setExpiringMedicines] = useState([]);
@@ -259,26 +179,41 @@ const Dashboard = () => {
     topSelling: []
   });
   const [refreshing, setRefreshing] = useState(false);
+  const [suppliers, setSuppliers] = useState([]);
+  const [suppliersLoading, setSuppliersLoading] = useState(false);
+  const [currentTab, setCurrentTab] = useState(0);
+  const [appointments, setAppointments] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(false);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+
+  // Report generation states
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [reportType, setReportType] = useState('');
+  const [reportDateRange, setReportDateRange] = useState({ start: '', end: '' });
+  const [reportFilters, setReportFilters] = useState({});
+  const [generatingReport, setGeneratingReport] = useState(false);
+  const [reportData, setReportData] = useState(null);
 
   // Fetch data functions
   const fetchAdminInfo = useCallback(async () => {
     try {
       const response = await api.get('/v1/api/admin/profile');
       if (response.data) {
-        setAdmin(response.data);  
+        setAdmin(response.data);
       }
     } catch (error) {
       console.error('Error fetching admin info:', error);
       setAdmin({ name: 'Admin', avatar: null }); // Fallback data
     }
   }, []);
-  
+
   const fetchNotifications = useCallback(async () => {
     try {
       const response = await api.get('/v1/api/medicines/notifications');
       if (response.data) {
         const newNotifications = [];
-        
+
         // Process low stock notifications
         response.data.lowStock?.forEach(medicine => {
           newNotifications.push({
@@ -289,7 +224,7 @@ const Dashboard = () => {
             timestamp: new Date().toISOString()
           });
         });
-        
+
         // Process expiring notifications
         response.data.expiring?.forEach(medicine => {
           const daysUntilExpiry = Math.ceil(
@@ -303,7 +238,7 @@ const Dashboard = () => {
             timestamp: new Date().toISOString()
           });
         });
-        
+
         setNotifications(newNotifications);
       }
     } catch (error) {
@@ -312,48 +247,32 @@ const Dashboard = () => {
     }
   }, []);
 
-  const fetchUsers = useCallback(async () => {
-    try {
-      const response = await api.get('/api/admin/users');
-      if (response.data) {
-        setUsersCount(response.data.length || 0);
-      }
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      setUsersCount(0);
-    }
-  }, []);
-
   const fetchMedicines = useCallback(async () => {
     try {
       const response = await api.get('/v1/api/medicines/all');
       if (response.data) {
         setMedicinesCount(response.data.length);
-        
+
         // Check for low stock medicines based on reorderLevel
-        const lowStock = response.data.filter(med => 
+        const lowStock = response.data.filter(med =>
           med.stock <= (med.reorderLevel || 10) && med.stock > 0
         );
-        
+
         const outOfStock = response.data.filter(med => med.stock === 0);
-        
+
         // Combine low stock and out of stock medicines
         setLowStockMedicines([...outOfStock, ...lowStock]);
-        
+
         // Check for expiring medicines
         const today = new Date();
         const alertThresholdDays = 30;
-        
+
         const expiring = response.data.filter(medicine => {
           const expiryDate = new Date(medicine.expiryDate);
           const daysUntilExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
           return daysUntilExpiry <= alertThresholdDays && daysUntilExpiry > 0;
         });
-        
-        if ((lowStock.length + outOfStock.length) > 0) {
-          soundManager.play('alert');
-        }
-        
+
         setExpiringMedicines(expiring);
       }
     } catch (error) {
@@ -433,185 +352,70 @@ const Dashboard = () => {
     try {
       const response = await api.get('/v1/api/emergency/all');
       const newEmergencies = response.data?.emergencies || [];
-      
-      if (newEmergencies.length > emergencies.length) {
-        const latestEmergency = newEmergencies[0];
-        setActiveEmergency(latestEmergency);
-        soundManager.play('emergency', true, 30000);
-      }
-      
       setEmergencies(newEmergencies);
     } catch (error) {
       console.error('Error fetching emergencies:', error);
       setEmergencies([]);
     }
-  }, [emergencies.length]);
+  }, []);
 
-  // Handle emergency acknowledgment
-  const handleAcknowledgeEmergency = useCallback(() => {
-    soundManager.stop('emergency');
-    if (activeEmergency) {
-      api.put(`/v1/api/emergency/${activeEmergency._id}/acknowledge`)
-        .then(() => {
-          setSnackbar({
-            open: true,
-            message: 'Emergency acknowledged successfully',
-            severity: 'success'
-          });
-          soundManager.play('success');
-        })
-        .catch(error => {
-          console.error('Error acknowledging emergency:', error);
-          setSnackbar({
-            open: true,
-            message: 'Failed to acknowledge emergency',
-            severity: 'error'
-          });
-        });
-    }
-    setActiveEmergency(null);
-  }, [activeEmergency]);
-
-  // Handle delete medicine
-  const handleDeleteMedicine = useCallback(async (medicineId, medicineName) => {
-    if (window.confirm(`Are you sure you want to delete ${medicineName}?`)) {
-      try {
-        await api.delete(`/v1/api/medicines/${medicineId}`);
-        setSnackbar({
-          open: true,
-          message: `${medicineName} deleted successfully`,
-          severity: 'success',
-        });
-        soundManager.play('success');
-        await fetchMedicines(); // Refresh medicines list
-      } catch (error) {
-        console.error('Error deleting medicine:', error);
-        setSnackbar({
-          open: true,
-          message: `Failed to delete ${medicineName}`,
-          severity: 'error',
-        });
-      }
-    }
-  }, [fetchMedicines]);
-
-  // Handle notify suppliers (send email)
-  const handleNotifySuppliers = useCallback(async () => {
+  const fetchSuppliers = useCallback(async () => {
     try {
-      setLoading(true);
-      const response = await api.post('/v1/api/medicines/notify-suppliers', {
-        medicines: lowStockMedicines.map(med => ({
-          id: med._id,
-          name: med.name,
-          stock: med.stock,
-          reorderQuantity: med.reorderQuantity || Math.max(50, med.minRequiredStock * 2)
-        }))
-      });
-
-      setSnackbar({
-        open: true,
-        message: 'Suppliers notified successfully',
-        severity: 'success'
-      });
-      soundManager.play('success');
-
-      // After notification, trigger restock
-      await handleCreatePurchaseOrder();
+      setSuppliersLoading(true);
+      const response = await api.get('/v1/api/suppliers');
+      setSuppliers(response.data || []);
     } catch (error) {
-      console.error('Error notifying suppliers:', error);
-      setSnackbar({
-        open: true,
-        message: error.response?.data?.message || 'Failed to notify suppliers',
-        severity: 'error'
-      });
+      console.error('Error fetching suppliers:', error);
     } finally {
-      setLoading(false);
+      setSuppliersLoading(false);
     }
-  }, [lowStockMedicines]);
+  }, []);
 
-  // Handle create purchase order (auto-restock)
-  const handleCreatePurchaseOrder = useCallback(async () => {
+  const fetchAppointments = useCallback(async () => {
     try {
-      setLoading(true);
-      const response = await api.post('/v1/api/medicines/restock', {
-        medicines: lowStockMedicines.map(med => ({
-          id: med._id,
-          name: med.name,
-          reorderQuantity: med.reorderQuantity || 50
-        }))
-      });
-
-      if (response.data.success) {
-        setSnackbar({
-          open: true,
-          message: 'Purchase order created and stock updated',
-          severity: 'success'
-        });
-        soundManager.play('success');
-        await fetchMedicines();
-      }
+      setAppointmentsLoading(true);
+      const response = await api.get('/api/appointments/all');
+      setAppointments(response.data || []);
     } catch (error) {
-      console.error('Error creating purchase order:', error);
-      setSnackbar({
-        open: true,
-        message: error.response?.data?.message || 'Failed to create purchase order',
-        severity: 'error'
-      });
+      console.error('Error fetching appointments:', error);
+      setAppointments([]);
     } finally {
-      setLoading(false);
+      setAppointmentsLoading(false);
     }
-  }, [lowStockMedicines, fetchMedicines]);
+  }, []);
 
-  const handleReturnMedicines = useCallback(async () => {
+  const fetchOrders = useCallback(async () => {
     try {
-      setLoading(true);
-      const response = await api.post('/v1/api/medicines/return', {
-        medicines: expiringMedicines.map(med => ({
-          id: med._id,
-          name: med.name,
-          returnQuantity: med.stock,
-          reason: 'Expiring/Expired Stock'
-        }))
-      });
-
-      setSnackbar({
-        open: true,
-        message: 'Medicines returned successfully',
-        severity: 'success'
-      });
-      soundManager.play('success');
-      
-      // Refresh medicines data
-      await fetchMedicines();
+      setOrdersLoading(true);
+      const response = await api.get('/v1/api/orders/all');
+      setOrders(response.data || []);
     } catch (error) {
-      console.error('Error returning medicines:', error);
-      setSnackbar({
-        open: true,
-        message: 'Failed to process returns',
-        severity: 'error'
-      });
+      console.error('Error fetching orders:', error);
+      setOrders([]);
     } finally {
-      setLoading(false);
+      setOrdersLoading(false);
     }
-  }, [expiringMedicines, fetchMedicines]);
+  }, []);
 
   // Refresh all data
   const refreshData = useCallback(async () => {
     setRefreshing(true);
     setError(null);
-    
+
     try {
       await Promise.all([
         fetchAdminInfo(),
-        fetchUsers(),
         fetchMedicines(),
         fetchOrderStats(),
         fetchEmergencies(),
         fetchSalesData(),
         fetchRecentActivities(),
-        fetchNotifications()
+        fetchNotifications(),
+        fetchSuppliers(),
+        fetchAppointments(),
+        fetchOrders()
       ]);
-      
+
       setSnackbar({
         open: true,
         message: 'Dashboard data refreshed successfully',
@@ -630,27 +434,22 @@ const Dashboard = () => {
       setRefreshing(false);
     }
   }, [
-    fetchAdminInfo, 
-    fetchUsers, 
-    fetchMedicines, 
-    fetchOrderStats, 
-    fetchEmergencies, 
-    fetchSalesData, 
+    fetchAdminInfo,
+    fetchMedicines,
+    fetchOrderStats,
+    fetchEmergencies,
+    fetchSalesData,
     fetchRecentActivities,
-    fetchNotifications
+    fetchNotifications,
+    fetchSuppliers,
+    fetchAppointments,
+    fetchOrders
   ]);
 
-  // Toggle sound
-  const toggleSound = useCallback(() => {
-    const newSoundState = !soundEnabled;
-    setSoundEnabled(newSoundState);
-    soundManager.toggleSound(newSoundState);
-    setSnackbar({
-      open: true,
-      message: newSoundState ? 'Sound alerts enabled' : 'Sound alerts disabled',
-      severity: 'info'
-    });
-  }, [soundEnabled]);
+  // Handle tab change
+  const handleTabChange = (event, newValue) => {
+    setCurrentTab(newValue);
+  };
 
   // Handle snackbar close
   const handleSnackbarClose = (event, reason) => {
@@ -660,523 +459,2420 @@ const Dashboard = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  // Report generation function
-  const generateDetailedReport = async () => {
+  // Handle emergency completion
+  const handleCompleteEmergency = useCallback(async (emergencyId) => {
     try {
-      setLoading(true);
-      
-      // Fetch additional data needed for report
-      const [
-        ordersResponse,
-        salesResponse,
-        inventoryResponse
-      ] = await Promise.all([
-        api.get('/v1/api/orders/all'),
-        api.get('/v1/api/orders/sales-analytics'),
-        api.get('/v1/api/medicines/inventory-status')
-      ]);
+      const response = await api.put(`/v1/api/emergency/${emergencyId}/complete`);
 
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.width;
-      const today = format(new Date(), 'MMMM dd, yyyy');
+      if (response.data.success) {
+        // Update the emergency in the list
+        setEmergencies(prevEmergencies =>
+          prevEmergencies.map(emergency =>
+            emergency._id === emergencyId
+              ? {
+                ...emergency,
+                completed: true,
+                status: 'RESOLVED',
+                completedAt: new Date()
+              }
+              : emergency
+          )
+        );
 
-      // Header
-      doc.setFontSize(20);
-      doc.text('CareLink Monthly Report', pageWidth / 2, 20, { align: 'center' });
-      doc.setFontSize(12);
-      doc.text(`Generated on: ${today}`, pageWidth / 2, 30, { align: 'center' });
+        setSnackbar({
+          open: true,
+          message: 'Emergency completed successfully',
+          severity: 'success'
+        });
 
-      // Financial Summary
-      doc.setFontSize(16);
-      doc.text('Financial Summary', 14, 45);
-      doc.setFontSize(12);
-      doc.autoTable({
-        startY: 50,
-        head: [['Metric', 'Value']],
-        body: [
-          ['Total Revenue', `Rs.${salesResponse.data.totalRevenue.toLocaleString()}`],
-          ['Monthly Revenue', `Rs.${salesResponse.data.monthlyRevenue.toLocaleString()}`],
-          ['Average Order Value', `Rs.${salesResponse.data.averageOrderValue.toLocaleString()}`],
-          ['Total Orders', orderStats.total.toString()],
-          ['Completed Orders', orderStats.completed.toString()],
-          ['Pending Orders', orderStats.pending.toString()]
-        ],
-      });
-
-      // Monthly Sales Trend
-      doc.addPage();
-      doc.setFontSize(16);
-      doc.text('Monthly Sales Trend', 14, 20);
-      doc.setFontSize(12);
-      doc.autoTable({
-        startY: 25,
-        head: [['Month', 'Revenue', 'Orders', 'Avg. Order Value']],
-        body: orderStats.monthlyRevenue.map(item => [
-          item.month,
-          `Rs.${item.revenue.toLocaleString()}`,
-          item.orderCount,
-          `Rs.${(item.revenue / item.orderCount).toFixed(2)}`
-        ]),
-      });
-
-      // Top Selling Products
-      doc.addPage();
-      doc.setFontSize(16);
-      doc.text('Top Selling Products', 14, 20);
-      doc.autoTable({
-        startY: 25,
-        head: [['Product Name', 'Units Sold', 'Revenue', 'Current Stock']],
-        body: salesData.topSelling.map(item => [
-          item.name,
-          item.sales,
-          `Rs.${(item.sales * item.price).toLocaleString()}`,
-          item.stock
-        ]),
-      });
-
-      // Inventory Status
-      doc.addPage();
-      doc.setFontSize(16);
-      doc.text('Inventory Status', 14, 20);
-      doc.autoTable({
-        startY: 25,
-        head: [['Category', 'Total Items', 'Low Stock Items', 'Out of Stock']],
-        body: inventoryResponse.data.categories.map(cat => [
-          cat.name,
-          cat.totalItems,
-          cat.lowStockItems,
-          cat.outOfStockItems
-        ]),
-      });
-
-      // Critical Alerts
-      if (lowStockMedicines.length > 0 || expiringMedicines.length > 0) {
-        doc.addPage();
-        doc.setFontSize(16);
-        doc.text('Critical Alerts', 14, 20);
-        
-        // Low Stock Items
-        if (lowStockMedicines.length > 0) {
-          doc.setFontSize(14);
-          doc.text('Low Stock Items', 14, 30);
-          doc.autoTable({
-            startY: 35,
-            head: [['Medicine Name', 'Current Stock', 'Min Required']],
-            body: lowStockMedicines.map(med => [
-              med.name,
-              med.stock,
-              med.minRequiredStock || 10
-            ]),
-          });
+        // If this was the active emergency, clear it
+        if (activeEmergency && activeEmergency._id === emergencyId) {
+          setActiveEmergency(null);
         }
 
-        // Expiring Items
-        if (expiringMedicines.length > 0) {
-          const currentY = doc.lastAutoTable.finalY + 15;
-          doc.setFontSize(14);
-          doc.text('Expiring Items', 14, currentY);
-          doc.autoTable({
-            startY: currentY + 5,
-            head: [['Medicine Name', 'Expiry Date', 'Days Left', 'Stock']],
-            body: expiringMedicines.map(med => [
-              med.name,
-              format(new Date(med.expiryDate), 'MMM dd, yyyy'),
-              Math.ceil((new Date(med.expiryDate) - new Date()) / (1000 * 60 * 60 * 24)),
-              med.stock
-            ]),
-          });
-        }
+        // Refresh emergencies
+        fetchEmergencies();
+
+      } else {
+        throw new Error(response.data.message || 'Failed to complete emergency');
       }
 
-      // Save the PDF
-      const fileName = `CareLink_Monthly_Report_${format(new Date(), 'yyyy-MM')}.pdf`;
-      doc.save(fileName);
+    } catch (error) {
+      console.error('Error completing emergency:', error);
 
       setSnackbar({
         open: true,
-        message: 'Report generated successfully!',
+        message: error.response?.data?.message || 'Failed to complete emergency',
+        severity: 'error'
+      });
+    }
+  }, [setEmergencies, setSnackbar, activeEmergency, setActiveEmergency, fetchEmergencies]);
+
+  // Handle emergency acknowledgment
+  const handleAcknowledgeEmergency = useCallback(async () => {
+    if (!activeEmergency) return;
+
+    try {
+      const response = await api.put(`/v1/api/emergency/${activeEmergency._id}/acknowledge`);
+
+      if (response.data.success) {
+        // Update the emergency in the list
+        setEmergencies(prevEmergencies =>
+          prevEmergencies.map(emergency =>
+            emergency._id === activeEmergency._id
+              ? { ...emergency, acknowledged: true, status: 'ACTIVE', acknowledgedAt: new Date() }
+              : emergency
+          )
+        );
+
+        setSnackbar({
+          open: true,
+          message: 'Emergency acknowledged successfully',
+          severity: 'success'
+        });
+
+        // Clear active emergency
+        setActiveEmergency(null);
+
+        // Refresh emergencies
+        fetchEmergencies();
+
+      } else {
+        throw new Error(response.data.message || 'Failed to acknowledge emergency');
+      }
+
+    } catch (error) {
+      console.error('Error acknowledging emergency:', error);
+
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.message || 'Failed to acknowledge emergency',
+        severity: 'error'
+      });
+    }
+  }, [activeEmergency, setEmergencies, setSnackbar, setActiveEmergency, fetchEmergencies]);
+
+  // Report generation functions
+  const generateInventoryReport = useCallback(async (filters) => {
+    try {
+      setGeneratingReport(true);
+
+      const reportData = {
+        generatedAt: new Date().toISOString(),
+        reportType: 'Inventory Management Report',
+        reportId: `INV-${Date.now()}`,
+        summary: {
+          totalMedicines: medicinesCount,
+          lowStockItems: lowStockMedicines.length,
+          expiringItems: expiringMedicines.length,
+          activeSuppliers: suppliers.filter(s => s.isActive).length,
+          totalEmergencies: emergencies.length,
+          criticalAlerts: lowStockMedicines.filter(med => med.stock === 0).length,
+          warningAlerts: expiringMedicines.filter(med => {
+            const daysUntilExpiry = Math.ceil(
+              (new Date(med.expiryDate) - new Date()) / (1000 * 60 * 60 * 24)
+            );
+            return daysUntilExpiry <= 7;
+          }).length
+        },
+        sections: {
+          criticalAlerts: {
+            title: '🚨 Critical Stock Alerts',
+            items: lowStockMedicines.filter(med => med.stock === 0).map(med => ({
+              name: med.name,
+              currentStock: med.stock,
+              minRequired: med.minRequiredStock || 10,
+              status: 'OUT OF STOCK',
+              priority: 'CRITICAL'
+            }))
+          },
+          lowStockItems: {
+            title: '⚠️ Low Stock Items',
+            items: lowStockMedicines.filter(med => med.stock > 0).map(med => ({
+              name: med.name,
+              currentStock: med.stock,
+              minRequired: med.minRequiredStock || 10,
+              status: 'LOW STOCK',
+              priority: 'WARNING'
+            }))
+          },
+          expiringMedicines: {
+            title: '⏰ Expiring Soon',
+            items: expiringMedicines.map(med => {
+              const daysUntilExpiry = Math.ceil(
+                (new Date(med.expiryDate) - new Date()) / (1000 * 60 * 60 * 24)
+              );
+              return {
+                name: med.name,
+                expiryDate: med.expiryDate,
+                daysLeft: daysUntilExpiry,
+                stock: med.stock,
+                priority: daysUntilExpiry <= 7 ? 'CRITICAL' : 'WARNING'
+              };
+            })
+          },
+          recentEmergencies: {
+            title: '🚑 Recent Emergencies',
+            items: emergencies.slice(0, 10).map(emergency => ({
+              patientName: emergency.patientName,
+              location: emergency.location,
+              status: emergency.status,
+              timestamp: emergency.timestamp,
+              message: emergency.message,
+              priority: emergency.status === 'CRITICAL' ? 'CRITICAL' : 'NORMAL'
+            }))
+          },
+          suppliers: {
+            title: '🏥 Active Suppliers',
+            items: suppliers.filter(s => s.isActive).map(supplier => ({
+              name: supplier.name,
+              contact: supplier.contact,
+              email: supplier.email,
+              status: 'ACTIVE',
+              lastOrder: supplier.lastOrder
+            }))
+          }
+        },
+        recommendations: [
+          'Immediately restock items with zero stock',
+          'Contact suppliers for low stock items',
+          'Dispose of medicines expiring within 7 days',
+          'Review emergency response procedures',
+          'Update supplier contact information'
+        ]
+      };
+
+      setReportData(reportData);
+
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      setSnackbar({
+        open: true,
+        message: 'Inventory report generated successfully',
         severity: 'success'
       });
-      soundManager.play('success');
+
+      return reportData;
+    } catch (error) {
+      console.error('Error generating inventory report:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to generate inventory report',
+        severity: 'error'
+      });
+      throw error;
+    } finally {
+      setGeneratingReport(false);
+    }
+  }, [medicinesCount, lowStockMedicines, expiringMedicines, suppliers, emergencies, setSnackbar]);
+
+  const generateAppointmentsReport = useCallback(async (filters) => {
+    try {
+      setGeneratingReport(true);
+
+      const appointmentStats = {
+        total: appointments.length,
+        confirmed: appointments.filter(a => a.status === 'confirmed').length,
+        completed: appointments.filter(a => a.status === 'completed').length,
+        cancelled: appointments.filter(a => a.status === 'cancelled').length,
+        pending: appointments.filter(a => a.status === 'pending').length,
+        todayAppointments: appointments.filter(a => {
+          const today = new Date().toDateString();
+          return new Date(a.date).toDateString() === today;
+        }).length,
+        thisWeekAppointments: appointments.filter(a => {
+          const weekAgo = new Date();
+          weekAgo.setDate(weekAgo.getDate() - 7);
+          return new Date(a.date) >= weekAgo;
+        }).length
+      };
+
+      const reportData = {
+        generatedAt: new Date().toISOString(),
+        reportType: 'Appointments Report',
+        reportId: `APT-${Date.now()}`,
+        summary: appointmentStats,
+        sections: {
+          todayAppointments: {
+            title: '📅 Today\'s Appointments',
+            items: appointments.filter(a => {
+              const today = new Date().toDateString();
+              return new Date(a.date).toDateString() === today;
+            }).map(appointment => ({
+              patientName: appointment.userId?.name || 'Unknown',
+              doctorName: appointment.doctorId?.name || 'Unknown',
+              time: appointment.time,
+              status: appointment.status,
+              type: appointment.appointmentType || 'Regular'
+            }))
+          },
+          upcomingAppointments: {
+            title: '⏭️ Upcoming Appointments',
+            items: appointments.filter(a => a.status === 'confirmed' || a.status === 'pending').slice(0, 10).map(appointment => ({
+              patientName: appointment.userId?.name || 'Unknown',
+              doctorName: appointment.doctorId?.name || 'Unknown',
+              date: appointment.date,
+              time: appointment.time,
+              status: appointment.status,
+              type: appointment.appointmentType || 'Regular'
+            }))
+          },
+          completedAppointments: {
+            title: '✅ Completed Appointments',
+            items: appointments.filter(a => a.status === 'completed').slice(0, 10).map(appointment => ({
+              patientName: appointment.userId?.name || 'Unknown',
+              doctorName: appointment.doctorId?.name || 'Unknown',
+              date: appointment.date,
+              time: appointment.time,
+              type: appointment.appointmentType || 'Regular'
+            }))
+          },
+          cancelledAppointments: {
+            title: '❌ Cancelled Appointments',
+            items: appointments.filter(a => a.status === 'cancelled').slice(0, 10).map(appointment => ({
+              patientName: appointment.userId?.name || 'Unknown',
+              doctorName: appointment.doctorId?.name || 'Unknown',
+              date: appointment.date,
+              time: appointment.time,
+              type: appointment.appointmentType || 'Regular'
+            }))
+          }
+        },
+        recommendations: [
+          'Follow up with pending appointments',
+          'Review cancellation patterns',
+          'Optimize appointment scheduling',
+          'Improve patient communication',
+          'Monitor doctor availability'
+        ]
+      };
+
+      setReportData(reportData);
+
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      setSnackbar({
+        open: true,
+        message: 'Appointments report generated successfully',
+        severity: 'success'
+      });
+
+      return reportData;
+    } catch (error) {
+      console.error('Error generating appointments report:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to generate appointments report',
+        severity: 'error'
+      });
+      throw error;
+    } finally {
+      setGeneratingReport(false);
+    }
+  }, [appointments, setSnackbar]);
+
+  const generateOrdersReport = useCallback(async (filters) => {
+    try {
+      setGeneratingReport(true);
+
+      const orderStatistics = {
+        total: orders.length,
+        completed: orders.filter(o => o.status === 'completed').length,
+        pending: orders.filter(o => o.status === 'pending').length,
+        cancelled: orders.filter(o => o.status === 'cancelled').length,
+        totalRevenue: orders
+          .filter(o => o.status === 'completed')
+          .reduce((sum, order) => sum + (order.totalAmount || 0), 0),
+        averageOrderValue: orders.filter(o => o.status === 'completed').length > 0
+          ? orders.filter(o => o.status === 'completed').reduce((sum, order) => sum + (order.totalAmount || 0), 0) / orders.filter(o => o.status === 'completed').length
+          : 0,
+        todayOrders: orders.filter(o => {
+          const today = new Date().toDateString();
+          return new Date(o.createdAt).toDateString() === today;
+        }).length,
+        thisWeekRevenue: orders
+          .filter(o => {
+            const weekAgo = new Date();
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            return new Date(o.createdAt) >= weekAgo && o.status === 'completed';
+          })
+          .reduce((sum, order) => sum + (order.totalAmount || 0), 0)
+      };
+
+      const reportData = {
+        generatedAt: new Date().toISOString(),
+        reportType: 'Orders Report',
+        reportId: `ORD-${Date.now()}`,
+        summary: orderStatistics,
+        sections: {
+          recentOrders: {
+            title: '🛒 Recent Orders',
+            items: orders.slice(0, 10).map(order => ({
+              orderId: order._id.slice(-8),
+              customerName: order.userId?.name || 'Unknown',
+              totalAmount: order.totalAmount,
+              status: order.status,
+              orderDate: order.createdAt,
+              itemsCount: order.items?.length || 0
+            }))
+          },
+          topRevenueOrders: {
+            title: '💰 High-Value Orders',
+            items: orders
+              .filter(o => o.status === 'completed')
+              .sort((a, b) => (b.totalAmount || 0) - (a.totalAmount || 0))
+              .slice(0, 10)
+              .map(order => ({
+                orderId: order._id.slice(-8),
+                customerName: order.userId?.name || 'Unknown',
+                totalAmount: order.totalAmount,
+                orderDate: order.createdAt,
+                itemsCount: order.items?.length || 0
+              }))
+          },
+          pendingOrders: {
+            title: '⏳ Pending Orders',
+            items: orders.filter(o => o.status === 'pending').slice(0, 10).map(order => ({
+              orderId: order._id.slice(-8),
+              customerName: order.userId?.name || 'Unknown',
+              totalAmount: order.totalAmount,
+              orderDate: order.createdAt,
+              itemsCount: order.items?.length || 0
+            }))
+          },
+          topProducts: {
+            title: '🏆 Top Selling Products',
+            items: (salesData.topSelling || []).map(product => ({
+              name: product.name,
+              sales: product.sales,
+              stock: product.stock,
+              revenue: product.sales * (product.price || 100) // Assuming average price
+            }))
+          }
+        },
+        recommendations: [
+          'Process pending orders promptly',
+          'Focus on high-value customers',
+          'Restock top-selling products',
+          'Improve order fulfillment time',
+          'Analyze cancellation reasons'
+        ]
+      };
+
+      setReportData(reportData);
+
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      setSnackbar({
+        open: true,
+        message: 'Orders report generated successfully',
+        severity: 'success'
+      });
+
+      return reportData;
+    } catch (error) {
+      console.error('Error generating orders report:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to generate orders report',
+        severity: 'error'
+      });
+      throw error;
+    } finally {
+      setGeneratingReport(false);
+    }
+  }, [orders, salesData, setSnackbar]);
+
+  const handleGenerateReport = useCallback(async () => {
+    try {
+      let reportData;
+
+      switch (reportType) {
+        case 'inventory':
+          reportData = await generateInventoryReport(reportFilters);
+          break;
+        case 'appointments':
+          reportData = await generateAppointmentsReport(reportFilters);
+          break;
+        case 'orders':
+          reportData = await generateOrdersReport(reportFilters);
+          break;
+        default:
+          throw new Error('Invalid report type');
+      }
+
+      // Here you would typically send the report data to a PDF generation service
+      // For now, we'll just show the data in a dialog
+      setReportData(reportData);
+      setReportDialogOpen(false);
 
     } catch (error) {
       console.error('Error generating report:', error);
-      setSnackbar({
-        open: true,
-        message: 'Failed to generate report',
-        severity: 'error'
-      });
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [reportType, reportFilters, generateInventoryReport, generateAppointmentsReport, generateOrdersReport]);
 
-  // Quick Actions section
-  const quickActions = (
-    <Grid container spacing={2}>
-      <Grid item xs={12} sm={6} md={3}>
+  const handleDownloadReport = useCallback(() => {
+    if (!reportData) return;
+
+    // Create a beautifully formatted HTML report
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${reportData.reportType}</title>
+          <style>
+            body { 
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+              margin: 0; 
+              padding: 20px; 
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              min-height: 100vh;
+            }
+            .container {
+              max-width: 1200px;
+              margin: 0 auto;
+              background: white;
+              border-radius: 15px;
+              box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+              overflow: hidden;
+            }
+            .header {
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              color: white;
+              padding: 30px;
+              text-align: center;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 2.5em;
+              font-weight: 300;
+            }
+            .header p {
+              margin: 10px 0 0 0;
+              opacity: 0.9;
+              font-size: 1.1em;
+            }
+            .report-id {
+              background: rgba(255,255,255,0.2);
+              padding: 8px 16px;
+              border-radius: 20px;
+              display: inline-block;
+              margin-top: 10px;
+              font-size: 0.9em;
+            }
+            .content {
+              padding: 30px;
+            }
+            .summary-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+              gap: 20px;
+              margin-bottom: 30px;
+            }
+            .summary-card {
+              background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+              color: white;
+              padding: 20px;
+              border-radius: 10px;
+              text-align: center;
+              box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            }
+            .summary-card h3 {
+              margin: 0 0 10px 0;
+              font-size: 2em;
+              font-weight: 300;
+            }
+            .summary-card p {
+              margin: 0;
+              opacity: 0.9;
+              font-size: 0.9em;
+            }
+            .section {
+              margin-bottom: 30px;
+              background: #f8f9fa;
+              border-radius: 10px;
+              overflow: hidden;
+            }
+            .section-header {
+              background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+              color: white;
+              padding: 15px 20px;
+              font-size: 1.2em;
+              font-weight: 600;
+            }
+            .section-content {
+              padding: 20px;
+            }
+            .item-card {
+              background: white;
+              border-radius: 8px;
+              padding: 15px;
+              margin-bottom: 10px;
+              box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+              border-left: 4px solid #4facfe;
+            }
+            .item-card h4 {
+              margin: 0 0 8px 0;
+              color: #333;
+            }
+            .item-details {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+              gap: 10px;
+              font-size: 0.9em;
+              color: #666;
+            }
+            .priority-critical {
+              border-left-color: #dc3545;
+            }
+            .priority-warning {
+              border-left-color: #ffc107;
+            }
+            .priority-normal {
+              border-left-color: #28a745;
+            }
+            .recommendations {
+              background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+              padding: 20px;
+              border-radius: 10px;
+              margin-top: 30px;
+            }
+            .recommendations h3 {
+              margin: 0 0 15px 0;
+              color: #333;
+            }
+            .recommendation-item {
+              background: white;
+              padding: 10px 15px;
+              margin-bottom: 8px;
+              border-radius: 5px;
+              box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .footer {
+              background: #f8f9fa;
+              padding: 20px;
+              text-align: center;
+              color: #666;
+              border-top: 1px solid #dee2e6;
+            }
+            @media print {
+              body { background: white; }
+              .container { box-shadow: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>${reportData.reportType}</h1>
+              <p>Generated on ${new Date(reportData.generatedAt).toLocaleString()}</p>
+              <div class="report-id">Report ID: ${reportData.reportId}</div>
+            </div>
+            
+            <div class="content">
+              <div class="summary-grid">
+                ${Object.entries(reportData.summary).map(([key, value]) => `
+                  <div class="summary-card">
+                    <h3>${typeof value === 'number' ? value.toLocaleString() : value}</h3>
+                    <p>${key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</p>
+                  </div>
+                `).join('')}
+              </div>
+              
+              ${Object.entries(reportData.sections).map(([sectionKey, section]) => `
+                <div class="section">
+                  <div class="section-header">${section.title}</div>
+                  <div class="section-content">
+                    ${section.items.map(item => `
+                      <div class="item-card ${item.priority ? `priority-${item.priority.toLowerCase()}` : ''}">
+                        <h4>${item.name || item.patientName || item.customerName || item.orderId}</h4>
+                        <div class="item-details">
+                          ${Object.entries(item).filter(([k, v]) => k !== 'name' && k !== 'patientName' && k !== 'customerName' && k !== 'orderId').map(([key, value]) => `
+                            <div><strong>${key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:</strong> ${value}</div>
+                          `).join('')}
+                        </div>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              `).join('')}
+              
+              ${reportData.recommendations ? `
+                <div class="recommendations">
+                  <h3>💡 Recommendations</h3>
+                  ${reportData.recommendations.map(rec => `
+                    <div class="recommendation-item">• ${rec}</div>
+                  `).join('')}
+                </div>
+              ` : ''}
+            </div>
+            
+            <div class="footer">
+              <p>Generated by CareLink Admin Dashboard</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${reportData.reportType.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setSnackbar({
+      open: true,
+      message: 'Beautiful HTML report downloaded successfully',
+      severity: 'success'
+    });
+  }, [reportData, setSnackbar]);
+
+  const handlePrintReport = useCallback(() => {
+    if (!reportData) return;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${reportData.reportType}</title>
+          <style>
+            body { 
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+              margin: 0; 
+              padding: 20px; 
+              background: white;
+            }
+            .container {
+              max-width: 1200px;
+              margin: 0 auto;
+              background: white;
+            }
+            .header {
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              color: white;
+              padding: 30px;
+              text-align: center;
+              border-radius: 10px;
+              margin-bottom: 30px;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 2.5em;
+              font-weight: 300;
+            }
+            .header p {
+              margin: 10px 0 0 0;
+              opacity: 0.9;
+              font-size: 1.1em;
+            }
+            .report-id {
+              background: rgba(255,255,255,0.2);
+              padding: 8px 16px;
+              border-radius: 20px;
+              display: inline-block;
+              margin-top: 10px;
+              font-size: 0.9em;
+            }
+            .summary-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+              gap: 20px;
+              margin-bottom: 30px;
+            }
+            .summary-card {
+              background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+              color: white;
+              padding: 20px;
+              border-radius: 10px;
+              text-align: center;
+              box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            }
+            .summary-card h3 {
+              margin: 0 0 10px 0;
+              font-size: 2em;
+              font-weight: 300;
+            }
+            .summary-card p {
+              margin: 0;
+              opacity: 0.9;
+              font-size: 0.9em;
+            }
+            .section {
+              margin-bottom: 30px;
+              background: #f8f9fa;
+              border-radius: 10px;
+              overflow: hidden;
+              page-break-inside: avoid;
+            }
+            .section-header {
+              background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+              color: white;
+              padding: 15px 20px;
+              font-size: 1.2em;
+              font-weight: 600;
+            }
+            .section-content {
+              padding: 20px;
+            }
+            .item-card {
+              background: white;
+              border-radius: 8px;
+              padding: 15px;
+              margin-bottom: 10px;
+              box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+              border-left: 4px solid #4facfe;
+            }
+            .item-card h4 {
+              margin: 0 0 8px 0;
+              color: #333;
+            }
+            .item-details {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+              gap: 10px;
+              font-size: 0.9em;
+              color: #666;
+            }
+            .priority-critical {
+              border-left-color: #dc3545;
+            }
+            .priority-warning {
+              border-left-color: #ffc107;
+            }
+            .priority-normal {
+              border-left-color: #28a745;
+            }
+            .recommendations {
+              background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+              padding: 20px;
+              border-radius: 10px;
+              margin-top: 30px;
+            }
+            .recommendations h3 {
+              margin: 0 0 15px 0;
+              color: #333;
+            }
+            .recommendation-item {
+              background: white;
+              padding: 10px 15px;
+              margin-bottom: 8px;
+              border-radius: 5px;
+              box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .footer {
+              background: #f8f9fa;
+              padding: 20px;
+              text-align: center;
+              color: #666;
+              border-top: 1px solid #dee2e6;
+              margin-top: 30px;
+            }
+            @media print {
+              body { background: white; }
+              .container { box-shadow: none; }
+              .section { page-break-inside: avoid; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>${reportData.reportType}</h1>
+              <p>Generated on ${new Date(reportData.generatedAt).toLocaleString()}</p>
+              <div class="report-id">Report ID: ${reportData.reportId}</div>
+            </div>
+            
+            <div class="summary-grid">
+              ${Object.entries(reportData.summary).map(([key, value]) => `
+                <div class="summary-card">
+                  <h3>${typeof value === 'number' ? value.toLocaleString() : value}</h3>
+                  <p>${key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</p>
+                </div>
+              `).join('')}
+            </div>
+            
+            ${Object.entries(reportData.sections).map(([sectionKey, section]) => `
+              <div class="section">
+                <div class="section-header">${section.title}</div>
+                <div class="section-content">
+                  ${section.items.map(item => `
+                    <div class="item-card ${item.priority ? `priority-${item.priority.toLowerCase()}` : ''}">
+                      <h4>${item.name || item.patientName || item.customerName || item.orderId}</h4>
+                      <div class="item-details">
+                        ${Object.entries(item).filter(([k, v]) => k !== 'name' && k !== 'patientName' && k !== 'customerName' && k !== 'orderId').map(([key, value]) => `
+                          <div><strong>${key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:</strong> ${value}</div>
+                        `).join('')}
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            `).join('')}
+            
+            ${reportData.recommendations ? `
+              <div class="recommendations">
+                <h3>💡 Recommendations</h3>
+                ${reportData.recommendations.map(rec => `
+                  <div class="recommendation-item">• ${rec}</div>
+                `).join('')}
+              </div>
+            ` : ''}
+            
+            <div class="footer">
+              <p>Generated by CareLink Admin Dashboard</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+
+    setSnackbar({
+      open: true,
+      message: 'Beautiful report sent to printer',
+      severity: 'success'
+    });
+  }, [reportData, setSnackbar]);
+
+  const handleExportPDF = useCallback(() => {
+    if (!reportData) return;
+
+    // Create a PDF-friendly version of the report
+    const pdfContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${reportData.reportType}</title>
+          <style>
+            @page { margin: 1in; }
+            body { 
+              font-family: 'Arial', sans-serif; 
+              margin: 0; 
+              padding: 0; 
+              background: white;
+              font-size: 12px;
+            }
+            .header {
+              background: #667eea;
+              color: white;
+              padding: 20px;
+              text-align: center;
+              margin-bottom: 20px;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 24px;
+              font-weight: bold;
+            }
+            .header p {
+              margin: 5px 0 0 0;
+              font-size: 14px;
+            }
+            .report-id {
+              background: rgba(255,255,255,0.2);
+              padding: 5px 10px;
+              border-radius: 10px;
+              display: inline-block;
+              margin-top: 10px;
+              font-size: 12px;
+            }
+            .summary-grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 15px;
+              margin-bottom: 20px;
+            }
+            .summary-card {
+              background: #f093fb;
+              color: white;
+              padding: 15px;
+              border-radius: 8px;
+              text-align: center;
+            }
+            .summary-card h3 {
+              margin: 0 0 5px 0;
+              font-size: 18px;
+              font-weight: bold;
+            }
+            .summary-card p {
+              margin: 0;
+              font-size: 12px;
+            }
+            .section {
+              margin-bottom: 20px;
+              background: #f8f9fa;
+              border-radius: 8px;
+              overflow: hidden;
+              page-break-inside: avoid;
+            }
+            .section-header {
+              background: #4facfe;
+              color: white;
+              padding: 10px 15px;
+              font-size: 14px;
+              font-weight: bold;
+            }
+            .section-content {
+              padding: 15px;
+            }
+            .item-card {
+              background: white;
+              border-radius: 5px;
+              padding: 10px;
+              margin-bottom: 8px;
+              border-left: 3px solid #4facfe;
+            }
+            .item-card h4 {
+              margin: 0 0 5px 0;
+              color: #333;
+              font-size: 14px;
+              font-weight: bold;
+            }
+            .item-details {
+              font-size: 11px;
+              color: #666;
+            }
+            .priority-critical {
+              border-left-color: #dc3545;
+            }
+            .priority-warning {
+              border-left-color: #ffc107;
+            }
+            .priority-normal {
+              border-left-color: #28a745;
+            }
+            .recommendations {
+              background: #a8edea;
+              padding: 15px;
+              border-radius: 8px;
+              margin-top: 20px;
+            }
+            .recommendations h3 {
+              margin: 0 0 10px 0;
+              color: #333;
+              font-size: 14px;
+              font-weight: bold;
+            }
+            .recommendation-item {
+              background: white;
+              padding: 8px 12px;
+              margin-bottom: 5px;
+              border-radius: 4px;
+              font-size: 11px;
+            }
+            .footer {
+              background: #f8f9fa;
+              padding: 15px;
+              text-align: center;
+              color: #666;
+              border-top: 1px solid #dee2e6;
+              margin-top: 20px;
+              font-size: 10px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>${reportData.reportType}</h1>
+            <p>Generated on ${new Date(reportData.generatedAt).toLocaleString()}</p>
+            <div class="report-id">Report ID: ${reportData.reportId}</div>
+          </div>
+          
+          <div class="summary-grid">
+            ${Object.entries(reportData.summary).map(([key, value]) => `
+              <div class="summary-card">
+                <h3>${typeof value === 'number' ? value.toLocaleString() : value}</h3>
+                <p>${key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</p>
+              </div>
+            `).join('')}
+          </div>
+          
+          ${Object.entries(reportData.sections).map(([sectionKey, section]) => `
+            <div class="section">
+              <div class="section-header">${section.title}</div>
+              <div class="section-content">
+                ${section.items.map(item => `
+                  <div class="item-card ${item.priority ? `priority-${item.priority.toLowerCase()}` : ''}">
+                    <h4>${item.name || item.patientName || item.customerName || item.orderId}</h4>
+                    <div class="item-details">
+                      ${Object.entries(item).filter(([k, v]) => k !== 'name' && k !== 'patientName' && k !== 'customerName' && k !== 'orderId').map(([key, value]) => `
+                        <div><strong>${key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:</strong> ${value}</div>
+                      `).join('')}
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `).join('')}
+          
+          ${reportData.recommendations ? `
+            <div class="recommendations">
+              <h3>💡 Recommendations</h3>
+              ${reportData.recommendations.map(rec => `
+                <div class="recommendation-item">• ${rec}</div>
+              `).join('')}
+            </div>
+          ` : ''}
+          
+          <div class="footer">
+            <p>Generated by CareLink Admin Dashboard</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const blob = new Blob([pdfContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${reportData.reportType.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setSnackbar({
+      open: true,
+      message: 'PDF-ready report downloaded (open in browser and print as PDF)',
+      severity: 'success'
+    });
+  }, [reportData, setSnackbar]);
+
+  // Tab content components
+  const InventoryTab = () => (
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" sx={{ fontWeight: 600 }}>
+          Inventory Management
+        </Typography>
         <Button
           variant="contained"
           color="primary"
-          fullWidth
-          startIcon={<MedicalServicesIcon />}
-          sx={{ py: 1.5 }}
+          startIcon={<PictureAsPdfIcon />}
           onClick={() => {
-            setSnackbar({
-              open: true,
-              message: 'Navigating to inventory management',
-              severity: 'info',
-            });
+            setReportType('inventory');
+            setReportDialogOpen(true);
           }}
         >
-          Manage Inventory
+          Generate Report
         </Button>
-      </Grid>
-      <Grid item xs={12} sm={6} md={3}>
-        <Button
-          variant="contained"
-          color="secondary"
-          fullWidth
-          startIcon={<ShoppingCartOutlinedIcon />}
-          sx={{ py: 1.5 }}
-          onClick={() => {
-            setSnackbar({
-              open: true,
-              message: 'Viewing all orders',
-              severity: 'info',
-            });
+      </Box>
+
+      {/* Emergency Alert */}
+      {activeEmergency && (
+        <Paper
+          sx={{
+            p: 3,
+            mb: 4,
+            borderRadius: 4,
+            border: '4px solid #dc2626',
+            backgroundColor: 'rgba(254, 226, 226, 0.9)',
+            animation: 'pulse 1.2s infinite',
+            boxShadow: '0 0 30px rgba(220, 38, 38, 0.6)',
           }}
         >
-          View Orders
-        </Button>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+            <EmergencyShareIcon sx={{ fontSize: 32, color: '#dc2626' }} />
+            <Typography variant="h5" sx={{ color: '#dc2626', fontWeight: 'bold' }}>
+              🚨 EMERGENCY ALERT - IMMEDIATE ACTION REQUIRED!
+            </Typography>
+          </Box>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <Box sx={{ backgroundColor: '#dc2626', color: 'white', p: 2, borderRadius: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                  Emergency Details
+                </Typography>
+                <Typography variant="body1">
+                  <strong>Time:</strong> {new Date(activeEmergency?.timestamp).toLocaleTimeString()}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>Location:</strong> {activeEmergency?.location || 'Unknown'}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>Status:</strong> {activeEmergency?.status || 'New'}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>Patient:</strong> {activeEmergency?.patientName || 'Unknown'}
+                </Typography>
+              </Box>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Box sx={{ backgroundColor: 'rgba(220, 38, 38, 0.8)', color: 'white', p: 2, borderRadius: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                  Emergency Message
+                </Typography>
+                <Typography variant="body1" sx={{ fontStyle: 'italic' }}>
+                  {activeEmergency?.message || 'No additional information provided.'}
+                </Typography>
+              </Box>
+            </Grid>
+          </Grid>
+          <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
+            <Button
+              variant="contained"
+              size="large"
+              color="error"
+              startIcon={<EmergencyShareIcon />}
+              sx={{ fontWeight: 'bold' }}
+              onClick={handleAcknowledgeEmergency}
+            >
+              Acknowledge Emergency
+            </Button>
+            <Button
+              variant="outlined"
+              size="large"
+              color="error"
+              startIcon={<CallIcon />}
+              onClick={() => {
+                setSnackbar({
+                  open: true,
+                  message: 'Contacting emergency services...',
+                  severity: 'info'
+                });
+              }}
+            >
+              Contact Emergency Services
+            </Button>
+            <Button
+              variant="outlined"
+              size="large"
+              color="error"
+              startIcon={<DirectionsRunIcon />}
+              onClick={() => {
+                setSnackbar({
+                  open: true,
+                  message: 'Dispatching medical team...',
+                  severity: 'info'
+                });
+              }}
+            >
+              Dispatch Medical Team
+            </Button>
+          </Box>
+        </Paper>
+      )}
+
+      {/* Stats Cards */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 3, borderRadius: 4 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <InventoryIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+              <Box>
+                <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                  {medicinesCount}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Total Medicines
+                </Typography>
+              </Box>
+            </Box>
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 3, borderRadius: 4 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <WarningAmberIcon sx={{ fontSize: 40, color: 'warning.main' }} />
+              <Box>
+                <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'warning.main' }}>
+                  {lowStockMedicines.length}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Low Stock Items
+                </Typography>
+              </Box>
+            </Box>
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 3, borderRadius: 4 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <ErrorOutlineIcon sx={{ fontSize: 40, color: 'error.main' }} />
+              <Box>
+                <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'error.main' }}>
+                  {expiringMedicines.length}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Expiring Soon
+                </Typography>
+              </Box>
+            </Box>
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 3, borderRadius: 4 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <LocalShippingIcon sx={{ fontSize: 40, color: 'success.main' }} />
+              <Box>
+                <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'success.main' }}>
+                  {suppliers.filter(s => s.isActive).length}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Active Suppliers
+                </Typography>
+              </Box>
+            </Box>
+          </Paper>
+        </Grid>
       </Grid>
-      <Grid item xs={12} sm={6} md={3}>
-        <Button
-          variant="contained"
-          color="info"
-          fullWidth
-          startIcon={<PersonOutlineIcon />}
-          sx={{ py: 1.5 }}
-          onClick={() => {
-            setSnackbar({
-              open: true,
-              message: 'Managing users',
-              severity: 'info',
-            });
-          }}
-        >
-          Manage Users
-        </Button>
-      </Grid>
-      <Grid item xs={12} sm={6} md={3}>
-        <Button
-          variant="contained"
-          color="warning"
-          fullWidth
-          startIcon={<AssessmentIcon />}
-          sx={{ py: 1.5 }}
-          onClick={generateDetailedReport}
-          disabled={loading}
-        >
-          {loading ? (
-            <CircularProgress size={24} color="inherit" />
-          ) : (
-            'Generate Report'
-          )}
-        </Button>
-      </Grid>
-    </Grid>
+
+      {/* Low Stock Medicines */}
+      {lowStockMedicines.length > 0 && (
+        <Paper sx={{ p: 3, mb: 3, borderRadius: 4, border: '2px solid #ff9800', backgroundColor: 'rgba(255, 152, 0, 0.1)' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h5" sx={{ fontWeight: 600, color: 'warning.main' }}>
+              Low Stock Alerts ({lowStockMedicines.length})
+            </Typography>
+            <Button
+              variant="contained"
+              color="warning"
+              startIcon={<EmailIcon />}
+              onClick={() => {
+                setSnackbar({
+                  open: true,
+                  message: 'Notifying suppliers about low stock items',
+                  severity: 'success'
+                });
+              }}
+            >
+              Notify Suppliers
+            </Button>
+          </Box>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Medicine Name</TableCell>
+                  <TableCell>Current Stock</TableCell>
+                  <TableCell>Min Required</TableCell>
+                  <TableCell>Last Restocked</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {lowStockMedicines.slice(0, 5).map((medicine) => (
+                  <TableRow key={medicine._id}>
+                    <TableCell>{medicine.name}</TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color="error.main" fontWeight="bold">
+                        {medicine.stock}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>{medicine.minRequiredStock || 10}</TableCell>
+                    <TableCell>
+                      {medicine.lastRestocked
+                        ? new Date(medicine.lastRestocked).toLocaleDateString()
+                        : 'N/A'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      )}
+
+      {/* Expiring Medicines */}
+      {expiringMedicines.length > 0 && (
+        <Paper sx={{ p: 3, mb: 3, borderRadius: 4, border: '2px solid #f44336', backgroundColor: 'rgba(244, 67, 54, 0.1)' }}>
+          <Typography variant="h5" sx={{ mb: 2, fontWeight: 600, color: 'error.main' }}>
+            Expiring Soon ({expiringMedicines.length})
+          </Typography>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Medicine Name</TableCell>
+                  <TableCell>Expiry Date</TableCell>
+                  <TableCell>Days Left</TableCell>
+                  <TableCell>Stock</TableCell>
+                  <TableCell>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {expiringMedicines.slice(0, 5).map((medicine) => {
+                  const daysUntilExpiry = Math.ceil(
+                    (new Date(medicine.expiryDate) - new Date()) / (1000 * 60 * 60 * 24)
+                  );
+                  return (
+                    <TableRow key={medicine._id} sx={{ backgroundColor: daysUntilExpiry <= 7 ? 'rgba(244, 67, 54, 0.1)' : 'inherit' }}>
+                      <TableCell>{medicine.name}</TableCell>
+                      <TableCell>
+                        {new Date(medicine.expiryDate).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={`${daysUntilExpiry} days`}
+                          color={daysUntilExpiry <= 7 ? 'error' : 'warning'}
+                          size="small"
+                          sx={{ fontWeight: 'bold' }}
+                        />
+                      </TableCell>
+                      <TableCell>{medicine.stock}</TableCell>
+                      <TableCell>
+                        <Button variant="outlined" size="small" color="error" startIcon={<DeleteIcon />}>
+                          Remove
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      )}
+
+      {/* Emergencies */}
+      <Paper sx={{ p: 3, borderRadius: 4 }}>
+        <Typography variant="h5" sx={{ mb: 2, fontWeight: 600 }}>
+          Recent Emergencies ({emergencies.length})
+        </Typography>
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Time</TableCell>
+                <TableCell>Location</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Patient</TableCell>
+                <TableCell>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {emergencies.slice(0, 5).map((emergency) => (
+                <TableRow key={emergency._id}>
+                  <TableCell>
+                    {new Date(emergency.timestamp).toLocaleTimeString()}
+                  </TableCell>
+                  <TableCell>{emergency.location || 'Unknown'}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={emergency.status}
+                      color={
+                        emergency.status === 'CRITICAL' ? 'error' :
+                          emergency.status === 'RESOLVED' ? 'success' : 'warning'
+                      }
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>{emergency.patientName || 'Unknown'}</TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        color="primary"
+                        onClick={() => {
+                          setSnackbar({
+                            open: true,
+                            message: `Viewing emergency details for ${emergency.patientName || 'Unknown Patient'}`,
+                            severity: 'info'
+                          });
+                        }}
+                      >
+                        View
+                      </Button>
+                      {emergency.status !== 'RESOLVED' && (
+                        <Button
+                          variant="contained"
+                          size="small"
+                          color="success"
+                          startIcon={<CheckCircleIcon />}
+                          onClick={() => handleCompleteEmergency(emergency._id)}
+                        >
+                          Complete
+                        </Button>
+                      )}
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+    </Box>
   );
+
+  const AppointmentsTab = () => {
+    // Calculate appointment statistics
+    const appointmentStats = useMemo(() => {
+      const total = appointments.length;
+      const confirmed = appointments.filter(a => a.status === 'confirmed').length;
+      const completed = appointments.filter(a => a.status === 'completed').length;
+      const cancelled = appointments.filter(a => a.status === 'cancelled').length;
+      const pending = appointments.filter(a => a.status === 'pending').length;
+
+      return { total, confirmed, completed, cancelled, pending };
+    }, [appointments]);
+
+    // Chart data for appointments
+    const appointmentChartData = {
+      labels: ['Confirmed', 'Completed', 'Cancelled', 'Pending'],
+      datasets: [
+        {
+          data: [
+            appointmentStats.confirmed,
+            appointmentStats.completed,
+            appointmentStats.cancelled,
+            appointmentStats.pending
+          ],
+          backgroundColor: [
+            '#4caf50',
+            '#2196f3',
+            '#f44336',
+            '#ff9800'
+          ],
+          borderWidth: 0
+        }
+      ]
+    };
+
+    const appointmentChartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+        }
+      },
+      cutout: '65%'
+    };
+
+    return (
+      <Box>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Typography variant="h4" sx={{ fontWeight: 600 }}>
+            Appointments Management
+          </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<PictureAsPdfIcon />}
+            onClick={() => {
+              setReportType('appointments');
+              setReportDialogOpen(true);
+            }}
+          >
+            Generate Report
+          </Button>
+        </Box>
+
+        {/* Appointment Statistics */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 3, borderRadius: 4 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <EventIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+                <Box>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                    {appointmentStats.total}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Total Appointments
+                  </Typography>
+                </Box>
+              </Box>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 3, borderRadius: 4 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <CheckCircleIcon sx={{ fontSize: 40, color: 'success.main' }} />
+                <Box>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'success.main' }}>
+                    {appointmentStats.confirmed}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Confirmed
+                  </Typography>
+                </Box>
+              </Box>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 3, borderRadius: 4 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <MedicalServicesIcon sx={{ fontSize: 40, color: 'info.main' }} />
+                <Box>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'info.main' }}>
+                    {appointmentStats.completed}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Completed
+                  </Typography>
+                </Box>
+              </Box>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 3, borderRadius: 4 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <ErrorIcon sx={{ fontSize: 40, color: 'error.main' }} />
+                <Box>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'error.main' }}>
+                    {appointmentStats.cancelled}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Cancelled
+                  </Typography>
+                </Box>
+              </Box>
+            </Paper>
+          </Grid>
+        </Grid>
+
+        {/* Charts Section */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} md={6}>
+            <Paper sx={{ p: 3, borderRadius: 4 }}>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                Appointment Status Distribution
+              </Typography>
+              <Box sx={{ height: 300, display: 'flex', justifyContent: 'center' }}>
+                <Doughnut data={appointmentChartData} options={appointmentChartOptions} />
+              </Box>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Paper sx={{ p: 3, borderRadius: 4 }}>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                Recent Appointments
+              </Typography>
+              <List>
+                {appointments.slice(0, 5).map((appointment) => (
+                  <ListItem key={appointment._id} sx={{ px: 0 }}>
+                    <ListItemText
+                      primary={
+                        <Typography variant="body2" fontWeight="medium">
+                          {appointment.userId?.name || 'Unknown Patient'}
+                        </Typography>
+                      }
+                      secondary={
+                        <Box>
+                          <Typography variant="caption" color="textSecondary">
+                            {new Date(appointment.date).toLocaleDateString()} at {appointment.time}
+                          </Typography>
+                          <Chip
+                            label={appointment.status}
+                            size="small"
+                            color={
+                              appointment.status === 'confirmed' ? 'success' :
+                                appointment.status === 'cancelled' ? 'error' :
+                                  appointment.status === 'completed' ? 'primary' : 'warning'
+                            }
+                            sx={{ mt: 0.5 }}
+                          />
+                        </Box>
+                      }
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            </Paper>
+          </Grid>
+        </Grid>
+
+        {appointmentsLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <Paper sx={{ p: 3, borderRadius: 4 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                All Appointments ({appointments.length})
+              </Typography>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<EventIcon />}
+              >
+                Manage Appointments
+              </Button>
+            </Box>
+
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Patient Name</TableCell>
+                    <TableCell>Doctor</TableCell>
+                    <TableCell>Date & Time</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Type</TableCell>
+                    <TableCell>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {appointments.length > 0 ? (
+                    appointments.slice(0, 10).map((appointment) => (
+                      <TableRow key={appointment._id}>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight="medium">
+                            {appointment.userId?.name || 'Unknown Patient'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {appointment.doctorId?.name || 'Unknown Doctor'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {new Date(appointment.date).toLocaleDateString()} at {appointment.time}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={appointment.status}
+                            color={
+                              appointment.status === 'confirmed' ? 'success' :
+                                appointment.status === 'cancelled' ? 'error' :
+                                  appointment.status === 'completed' ? 'primary' : 'warning'
+                            }
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {appointment.appointmentType || 'Regular'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            color="primary"
+                          >
+                            View Details
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} align="center">
+                        <Box sx={{ py: 3, opacity: 0.6 }}>
+                          <EventIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                          <Typography variant="body2" color="text.secondary">
+                            No appointments found
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
+        )}
+      </Box>
+    );
+  };
+
+  const OrdersTab = () => {
+    // Calculate order statistics
+    const orderStatistics = useMemo(() => {
+      const total = orders.length;
+      const completed = orders.filter(o => o.status === 'completed').length;
+      const pending = orders.filter(o => o.status === 'pending').length;
+      const cancelled = orders.filter(o => o.status === 'cancelled').length;
+      const totalRevenue = orders
+        .filter(o => o.status === 'completed')
+        .reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+
+      return { total, completed, pending, cancelled, totalRevenue };
+    }, [orders]);
+
+    // Chart data for orders
+    const orderChartData = {
+      labels: ['Completed', 'Pending', 'Cancelled'],
+      datasets: [
+        {
+          data: [
+            orderStatistics.completed,
+            orderStatistics.pending,
+            orderStatistics.cancelled
+          ],
+          backgroundColor: [
+            '#4caf50',
+            '#ff9800',
+            '#f44336'
+          ],
+          borderWidth: 0
+        }
+      ]
+    };
+
+    const orderChartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+        }
+      },
+      cutout: '65%'
+    };
+
+    // Revenue chart data
+    const revenueChartData = {
+      labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+      datasets: [
+        {
+          label: 'Monthly Revenue',
+          data: [12000, 19000, 15000, 25000, 22000, 30000],
+          fill: true,
+          backgroundColor: 'rgba(25, 118, 210, 0.2)',
+          borderColor: '#1976d2',
+          tension: 0.4,
+        }
+      ]
+    };
+
+    const revenueChartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: {
+            color: 'rgba(0,0,0,0.1)',
+          }
+        },
+        x: {
+          grid: {
+            display: false
+          }
+        }
+      }
+    };
+
+    return (
+      <Box>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Typography variant="h4" sx={{ fontWeight: 600 }}>
+            Orders Management
+          </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<PictureAsPdfIcon />}
+            onClick={() => {
+              setReportType('orders');
+              setReportDialogOpen(true);
+            }}
+          >
+            Generate Report
+          </Button>
+        </Box>
+
+        {/* Order Statistics */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 3, borderRadius: 4 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <ShoppingBasketIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+                <Box>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                    {orderStatistics.total}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Total Orders
+                  </Typography>
+                </Box>
+              </Box>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 3, borderRadius: 4 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <CheckCircleIcon sx={{ fontSize: 40, color: 'success.main' }} />
+                <Box>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'success.main' }}>
+                    {orderStatistics.completed}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Completed
+                  </Typography>
+                </Box>
+              </Box>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 3, borderRadius: 4 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <WarningAmberIcon sx={{ fontSize: 40, color: 'warning.main' }} />
+                <Box>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'warning.main' }}>
+                    {orderStatistics.pending}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Pending
+                  </Typography>
+                </Box>
+              </Box>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 3, borderRadius: 4 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <MonetizationOnOutlinedIcon sx={{ fontSize: 40, color: 'info.main' }} />
+                <Box>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'info.main' }}>
+                    Rs. {orderStatistics.totalRevenue.toLocaleString()}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Total Revenue
+                  </Typography>
+                </Box>
+              </Box>
+            </Paper>
+          </Grid>
+        </Grid>
+
+        {/* Charts Section */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} md={6}>
+            <Paper sx={{ p: 3, borderRadius: 4 }}>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                Order Status Distribution
+              </Typography>
+              <Box sx={{ height: 300, display: 'flex', justifyContent: 'center' }}>
+                <Doughnut data={orderChartData} options={orderChartOptions} />
+              </Box>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Paper sx={{ p: 3, borderRadius: 4 }}>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                Monthly Revenue Trend
+              </Typography>
+              <Box sx={{ height: 300 }}>
+                <Line data={revenueChartData} options={revenueChartOptions} />
+              </Box>
+            </Paper>
+          </Grid>
+        </Grid>
+
+        {ordersLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <Paper sx={{ p: 3, borderRadius: 4 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                All Orders ({orders.length})
+              </Typography>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<ShoppingBasketIcon />}
+              >
+                Manage Orders
+              </Button>
+            </Box>
+
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Order ID</TableCell>
+                    <TableCell>Customer</TableCell>
+                    <TableCell>Total Amount</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Date</TableCell>
+                    <TableCell>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {orders.length > 0 ? (
+                    orders.slice(0, 10).map((order) => (
+                      <TableRow key={order._id}>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight="medium">
+                            #{order._id.slice(-8)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {order.userId?.name || 'Unknown Customer'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight="medium">
+                            Rs. {order.totalAmount?.toLocaleString() || '0'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={order.status}
+                            color={
+                              order.status === 'completed' ? 'success' :
+                                order.status === 'cancelled' ? 'error' :
+                                  order.status === 'pending' ? 'warning' : 'default'
+                            }
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {new Date(order.createdAt).toLocaleDateString()}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            color="primary"
+                          >
+                            View Details
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} align="center">
+                        <Box sx={{ py: 3, opacity: 0.6 }}>
+                          <ShoppingBasketIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                          <Typography variant="body2" color="text.secondary">
+                            No orders found
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
+        )}
+      </Box>
+    );
+  };
+
+  // Delivery Personnel Tab Component
+  const DeliveryPersonnelTab = () => {
+    const [deliveryPersonnel, setDeliveryPersonnel] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [showAddDialog, setShowAddDialog] = useState(false);
+    const [newPersonnel, setNewPersonnel] = useState({
+      name: '',
+      email: '',
+      phone: '',
+      employeeId: '',
+      vehicleNumber: '',
+      vehicleType: 'bike',
+      assignedArea: '',
+    });
+
+    const fetchDeliveryPersonnel = async () => {
+      try {
+        setLoading(true);
+        const response = await api.get('/api/delivery/all');
+        if (response.data.success) {
+          setDeliveryPersonnel(response.data.data);
+        }
+      } catch (error) {
+        console.error('Error fetching delivery personnel:', error);
+        setSnackbar({
+          open: true,
+          message: 'Failed to fetch delivery personnel',
+          severity: 'error'
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    useEffect(() => {
+      fetchDeliveryPersonnel();
+    }, []);
+
+    const handleAddPersonnel = async () => {
+      try {
+        const response = await api.post('/api/delivery/register', newPersonnel);
+        if (response.data.success) {
+          setSnackbar({
+            open: true,
+            message: 'Delivery personnel registered successfully. Registration email sent with temporary password.',
+            severity: 'success'
+          });
+          setShowAddDialog(false);
+          setNewPersonnel({
+            name: '',
+            email: '',
+            phone: '',
+            employeeId: '',
+            vehicleNumber: '',
+            vehicleType: 'bike',
+            assignedArea: '',
+          });
+          fetchDeliveryPersonnel();
+        }
+      } catch (error) {
+        console.error('Error adding delivery personnel:', error);
+        setSnackbar({
+          open: true,
+          message: error.response?.data?.message || 'Failed to register delivery personnel',
+          severity: 'error'
+        });
+      }
+    };
+
+    const handleStatusUpdate = async (personnelId, newStatus) => {
+      try {
+        const response = await api.put(`/api/delivery/${personnelId}/status`, { status: newStatus });
+        if (response.data.success) {
+          setSnackbar({
+            open: true,
+            message: 'Status updated successfully',
+            severity: 'success'
+          });
+          fetchDeliveryPersonnel();
+        }
+      } catch (error) {
+        console.error('Error updating status:', error);
+        setSnackbar({
+          open: true,
+          message: 'Failed to update status',
+          severity: 'error'
+        });
+      }
+    };
+
+    return (
+      <Box>
+        {/* Header */}
+        <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h5" sx={{ fontWeight: 600 }}>
+            Delivery Personnel Management
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<PersonOutlineIcon />}
+            onClick={() => setShowAddDialog(true)}
+          >
+            Add Delivery Personnel
+          </Button>
+        </Box>
+
+        {/* Stats Cards */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography color="textSecondary" gutterBottom>
+                      Total Personnel
+                    </Typography>
+                    <Typography variant="h4" component="div">
+                      {deliveryPersonnel.length}
+                    </Typography>
+                  </Box>
+                  <LocalShippingIcon color="primary" sx={{ fontSize: 40 }} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography color="textSecondary" gutterBottom>
+                      Active Personnel
+                    </Typography>
+                    <Typography variant="h4" component="div">
+                      {deliveryPersonnel.filter(p => p.status === 'active').length}
+                    </Typography>
+                  </Box>
+                  <CheckCircleIcon color="success" sx={{ fontSize: 40 }} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography color="textSecondary" gutterBottom>
+                      Online Personnel
+                    </Typography>
+                    <Typography variant="h4" component="div">
+                      {deliveryPersonnel.filter(p => p.isOnline).length}
+                    </Typography>
+                  </Box>
+                  <TrendingUpIcon color="primary" sx={{ fontSize: 40 }} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography color="textSecondary" gutterBottom>
+                      Total Deliveries
+                    </Typography>
+                    <Typography variant="h4" component="div">
+                      {deliveryPersonnel.reduce((sum, p) => sum + (p.totalDeliveries || 0), 0)}
+                    </Typography>
+                  </Box>
+                  <ShoppingBasketIcon color="primary" sx={{ fontSize: 40 }} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+
+        {/* Personnel List */}
+        <Card>
+          <CardContent>
+            <Typography variant="h6" sx={{ mb: 3 }}>
+              Delivery Personnel List
+            </Typography>
+            {loading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                <CircularProgress />
+              </Box>
+            ) : (
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Name</TableCell>
+                      <TableCell>Employee ID</TableCell>
+                      <TableCell>Vehicle</TableCell>
+                      <TableCell>Assigned Area</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Online</TableCell>
+                      <TableCell>Total Deliveries</TableCell>
+                      <TableCell>Rating</TableCell>
+                      <TableCell>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {deliveryPersonnel.map((personnel) => (
+                      <TableRow key={personnel._id}>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Avatar sx={{ width: 32, height: 32 }}>
+                              {personnel.name.charAt(0)}
+                            </Avatar>
+                            <Box>
+                              <Typography variant="body2" fontWeight="medium">
+                                {personnel.name}
+                              </Typography>
+                              <Typography variant="caption" color="textSecondary">
+                                {personnel.email}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight="medium">
+                            {personnel.employeeId}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="body2">
+                              {personnel.vehicleType} - {personnel.vehicleNumber}
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {personnel.assignedArea}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={personnel.status}
+                            color={
+                              personnel.status === 'active' ? 'success' :
+                                personnel.status === 'inactive' ? 'error' : 'warning'
+                            }
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={personnel.isOnline ? 'Online' : 'Offline'}
+                            color={personnel.isOnline ? 'success' : 'default'}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight="medium">
+                            {personnel.totalDeliveries || 0}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <StarIcon sx={{ color: 'gold', fontSize: 16 }} />
+                            <Typography variant="body2">
+                              {personnel.rating || 0}
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <FormControl size="small">
+                            <Select
+                              value={personnel.status}
+                              onChange={(e) => handleStatusUpdate(personnel._id, e.target.value)}
+                              sx={{ minWidth: 120 }}
+                            >
+                              <MenuItem value="active">Active</MenuItem>
+                              <MenuItem value="inactive">Inactive</MenuItem>
+                              <MenuItem value="on_delivery">On Delivery</MenuItem>
+                            </Select>
+                          </FormControl>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Add Personnel Dialog */}
+        <Dialog open={showAddDialog} onClose={() => setShowAddDialog(false)} maxWidth="md" fullWidth>
+          <DialogTitle>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <PersonOutlineIcon />
+              Add New Delivery Personnel
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            <Alert severity="info" sx={{ mb: 2 }}>
+              <AlertTitle>Automatic Password Generation</AlertTitle>
+              A temporary password will be automatically generated and sent to the delivery personnel's email address.
+              They can use this password to log in and then change it to a permanent one.
+            </Alert>
+
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Full Name"
+                  value={newPersonnel.name}
+                  onChange={(e) => setNewPersonnel(prev => ({ ...prev, name: e.target.value }))}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Email"
+                  type="email"
+                  value={newPersonnel.email}
+                  onChange={(e) => setNewPersonnel(prev => ({ ...prev, email: e.target.value }))}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Phone"
+                  value={newPersonnel.phone}
+                  onChange={(e) => setNewPersonnel(prev => ({ ...prev, phone: e.target.value }))}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Employee ID"
+                  value={newPersonnel.employeeId}
+                  onChange={(e) => setNewPersonnel(prev => ({ ...prev, employeeId: e.target.value }))}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Vehicle Number"
+                  value={newPersonnel.vehicleNumber}
+                  onChange={(e) => setNewPersonnel(prev => ({ ...prev, vehicleNumber: e.target.value }))}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Vehicle Type</InputLabel>
+                  <Select
+                    value={newPersonnel.vehicleType}
+                    onChange={(e) => setNewPersonnel(prev => ({ ...prev, vehicleType: e.target.value }))}
+                    label="Vehicle Type"
+                  >
+                    <MenuItem value="bike">Bike</MenuItem>
+                    <MenuItem value="car">Car</MenuItem>
+                    <MenuItem value="van">Van</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Assigned Area"
+                  value={newPersonnel.assignedArea}
+                  onChange={(e) => setNewPersonnel(prev => ({ ...prev, assignedArea: e.target.value }))}
+                />
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowAddDialog(false)}>Cancel</Button>
+            <Button onClick={handleAddPersonnel} variant="contained">
+              Add Personnel
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    );
+  };
 
   // Initial data load
   useEffect(() => {
     refreshData();
-    
-    // Set up intervals for periodic updates
-    const fastInterval = setInterval(() => {
-      fetchEmergencies();
-      fetchNotifications();
-    }, 10000); // Every 10 seconds
-    
-    const mediumInterval = setInterval(() => {
-      fetchMedicines();
-      fetchOrderStats();
-      fetchRecentActivities();
-    }, 60000); // Every minute
-    
-    const slowInterval = setInterval(() => {
-      fetchUsers();
-      fetchSalesData();
-      fetchAdminInfo();
-    }, 300000); // Every 5 minutes
-    
-    // Clean up intervals
-    return () => {
-      clearInterval(fastInterval);
-      clearInterval(mediumInterval);
-      clearInterval(slowInterval);
-      soundManager.stopAll();
-    };
-  }, [
-    refreshData, 
-    fetchEmergencies, 
-    fetchNotifications, 
-    fetchMedicines, 
-    fetchOrderStats, 
-    fetchRecentActivities, 
-    fetchUsers, 
-    fetchSalesData, 
-    fetchAdminInfo
-  ]);
-
-  // Chart data preparation
-  const revenueChartData = useMemo(() => {
-    return {
-      labels: orderStats.monthlyRevenue?.map(item => item.month) || [],
-      datasets: [
-        {
-          label: 'Monthly Revenue',
-          data: orderStats.monthlyRevenue?.map(item => item.revenue) || [],
-          fill: true,
-          backgroundColor: alpha(theme.palette.primary.main, 0.2),
-          borderColor: theme.palette.primary.main,
-          tension: 0.4,
-          yAxisID: 'y',
-        },
-        {
-          label: 'Orders Count',
-          data: orderStats.monthlyRevenue?.map(item => item.orderCount) || [],
-          fill: false,
-          borderColor: theme.palette.success.main,
-          borderDash: [5, 5],
-          tension: 0.4,
-          yAxisID: 'y1',
-        }
-      ],
-    };
-  }, [orderStats.monthlyRevenue, theme.palette.primary.main, theme.palette.success.main]);
-
-  const categoryChartData = useMemo(() => {
-    return {
-      labels: salesData.categories.map(cat => cat.name),
-      datasets: [
-        {
-          data: salesData.categories.map(cat => cat.percentage),
-          backgroundColor: [
-            '#3366FF',
-            '#00AB55',
-            '#FFC107',
-            '#FF4842',
-            '#04297A',
-            '#7A0C2E'
-          ],
-          borderWidth: 0
-        }
-      ]
-    };
-  }, [salesData.categories]);
-
-  const topSellingChartData = useMemo(() => {
-    return {
-      labels: salesData.topSelling.map(item => item.name),
-      datasets: [
-        {
-          label: 'Sales',
-          data: salesData.topSelling.map(item => item.sales),
-          backgroundColor: alpha(theme.palette.info.main, 0.8),
-          borderRadius: 5
-        }
-      ]
-    };
-  }, [salesData.topSelling, theme.palette.info.main]);
-
-  const orderStatusData = useMemo(() => {
-    return {
-      labels: ['Completed', 'Pending', 'Canceled'],
-      datasets: [
-        {
-          data: [
-            orderStats.completed || 0,
-            orderStats.pending || 0,
-            orderStats.canceled || 0
-          ],
-          backgroundColor: [
-            theme.palette.success.main,
-            theme.palette.warning.main,
-            theme.palette.error.main
-          ],
-          borderWidth: 0
-        }
-      ]
-    };
-  }, [
-    orderStats.completed, 
-    orderStats.pending, 
-    orderStats.canceled, 
-    theme.palette.success.main, 
-    theme.palette.warning.main, 
-    theme.palette.error.main
-  ]);
-
-  const inventoryStatusData = useMemo(() => {
-    return {
-      labels: ['Normal Stock', 'Low Stock', 'Expiring Soon'],
-      datasets: [
-        {
-          data: [
-            medicinesCount - lowStockMedicines.length - expiringMedicines.length,
-            lowStockMedicines.length,
-            expiringMedicines.length
-          ],
-          backgroundColor: [
-            '#4CAF50',
-            '#FF9800',
-            '#F44336'
-          ]
-        }
-      ]
-    };
-  }, [medicinesCount, lowStockMedicines.length, expiringMedicines.length]);
-
-  // Chart options
-  const revenueChartOptions = {
-    responsive: true,
-    interaction: {
-      mode: 'index',
-      intersect: false,
-    },
-    plugins: {
-      legend: {
-        position: 'top',
-      },
-      tooltip: {
-        callbacks: {
-          label: function(context) {
-            const label = context.dataset.label || '';
-            const value = context.raw;
-            if (label === 'Monthly Revenue') {
-              return `${label}: Rs.${value.toLocaleString()}`;
-            }
-            return `${label}: ${value}`;
-          }
-        }
-      }
-    },
-    scales: {
-      y: {
-        type: 'linear',
-        display: true,
-        position: 'left',
-        title: {
-          display: true,
-          text: 'Revenue (Rs)'
-        },
-        grid: {
-          color: theme.palette.divider,
-        }
-      },
-      y1: {
-        type: 'linear',
-        display: true,
-        position: 'right',
-        title: {
-          display: true,
-          text: 'Number of Orders'
-        },
-        grid: {
-          drawOnChartArea: false,
-        },
-      },
-      x: {
-        grid: {
-          color: theme.palette.divider,
-        }
-      }
-    },
-    maintainAspectRatio: false
-  };
-
-  const doughnutOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'bottom',
-      }
-    },
-    cutout: '65%'
-  };
-
-  const barChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: false
-      }
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        grid: {
-          color: theme.palette.divider,
-        }
-      },
-      x: {
-        grid: {
-          display: false
-        }
-      }
-    }
-  };
-
-  // Stats cards data
-  const statsCards = [
-    { 
-      title: 'Total Users',
-      subtitle: 'Active platform users',
-      value: usersCount.toString(),
-      change: '+12.5% this month',
-      trending: 'up',
-      icon: <PersonOutlineIcon sx={{ fontSize: 40, color: '#3366FF' }} />,
-      gradient: `linear-gradient(135deg, ${alpha('#3366FF', 0.1)} 0%, ${alpha('#3366FF', 0.2)} 100%)`,
-      iconBg: alpha('#3366FF', 0.2)
-    },
-    { 
-      title: 'Active Orders',
-      subtitle: 'Orders in progress',
-      value: orderStats.total?.toString() || '0',
-      change: `${orderStats.pending || 0} Pending Orders`,
-      trending: 'up',
-      icon: <ShoppingCartOutlinedIcon sx={{ fontSize: 40, color: '#00AB55' }} />,
-      gradient: `linear-gradient(135deg, ${alpha('#00AB55', 0.1)} 0%, ${alpha('#00AB55', 0.2)} 100%)`,
-      iconBg: alpha('#00AB55', 0.2)
-    },
-    { 
-      title: 'Revenue',
-      subtitle: 'Total earnings',
-      value: `Rs.${(orderStats.totalRevenue || 0).toLocaleString()}`,
-      change: `${orderStats.completed || 0} Completed Orders`,
-      trending: 'up',
-      icon: <MonetizationOnOutlinedIcon sx={{ fontSize: 40, color: '#FFAB00' }} />,
-      gradient: `linear-gradient(135deg, ${alpha('#FFAB00', 0.1)} 0%, ${alpha('#FFAB00', 0.2)} 100%)`,
-      iconBg: alpha('#FFAB00', 0.2)
-    },
-    { 
-      title: 'Inventory',
-      subtitle: 'Available products',
-      value: medicinesCount.toString(),
-      change: `${lowStockMedicines.length} items low stock`,
-      trending: lowStockMedicines.length > 5 ? 'down' : 'up',
-      icon: <InventoryIcon sx={{ fontSize: 40, color: '#36B37E' }} />,
-      gradient: `linear-gradient(135deg, ${alpha('#36B37E', 0.1)} 0%, ${alpha('#36B37E', 0.2)} 100%)`,
-      iconBg: alpha('#36B37E', 0.2)
-    },
-  ];
+  }, [refreshData]);
 
   // Render function
   return (
-    <Box 
+    <Box
       component="main"
       sx={{
         flexGrow: 1,
@@ -1185,23 +2881,24 @@ const Dashboard = () => {
         flexDirection: 'column',
         overflow: 'hidden',
         backgroundColor: theme.palette.mode === 'dark' ? '#121212' : '#F7F9FC',
-        ml: { xs: 8, lg: 28 }, // Adjusted margin based on sidebar width
+        ml: { xs: 8, lg: 28 },
         mt: { xs: 7, sm: 8 },
-        transition: 'all 0.3s ease'
+        transition: 'all 0.3s ease',
+        position: 'relative'
       }}
     >
       <Container maxWidth="xl" sx={{ py: 4, flex: 1 }}>
         {/* Header */}
-        <Box sx={{ 
-          mb: 4, 
-          display: 'flex', 
-          justifyContent: 'space-between', 
+        <Box sx={{
+          mb: 4,
+          display: 'flex',
+          justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: 2
         }}>
           <Box>
-            <Typography variant="h4" sx={{ 
+            <Typography variant="h4" sx={{
               fontWeight: 700,
               color: theme.palette.text.primary,
               mb: 1
@@ -1211,21 +2908,16 @@ const Dashboard = () => {
             <Typography variant="body1" sx={{ color: theme.palette.text.secondary }}>
               Here's your CareLink dashboard overview for {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
             </Typography>
-          </Box
-          >
-          
+          </Box>
+
           <Box sx={{ display: 'flex', gap: 2 }}>
-            <Tooltip title={soundEnabled ? "Disable sound alerts" : "Enable sound alerts"}>
-             
-            </Tooltip>
-            
             <Tooltip title="Refresh dashboard">
-              <IconButton 
-                onClick={refreshData} 
+              <IconButton
+                onClick={refreshData}
                 disabled={refreshing}
-                sx={{ 
-                  bgcolor: alpha(theme.palette.primary.main, 0.1),
-                  border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`
+                sx={{
+                  bgcolor: 'rgba(25, 118, 210, 0.1)',
+                  border: '1px solid rgba(25, 118, 210, 0.2)'
                 }}
               >
                 {refreshing ? (
@@ -1235,17 +2927,13 @@ const Dashboard = () => {
                 )}
               </IconButton>
             </Tooltip>
-            
-            <Badge badgeContent={notifications.filter(n => !n.read).length} color="error">
-             
-            </Badge>
           </Box>
         </Box>
-        
+
         {/* Error Alert */}
         {error && (
-          <Alert 
-            severity="error" 
+          <Alert
+            severity="error"
             sx={{ mb: 3 }}
             onClose={() => setError(null)}
           >
@@ -1253,930 +2941,54 @@ const Dashboard = () => {
             {error}
           </Alert>
         )}
-        
-        {/* Stats Cards */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          {statsCards.map((card, index) => (
-            <Grid item xs={12} sm={6} md={3} key={index} sx={{
-              animation: `${fadeInAnimation} 0.5s ease forwards`,
-              animationDelay: `${index * 0.1}s`,
-              opacity: 0
-            }}>
-              <Paper
-                sx={{
-                  p: 3,
-                  height: '100%',
-                  background: card.gradient,
-                  border: '1px solid',
-                  borderColor: 'rgba(0,0,0,0.05)',
-                  borderRadius: 4,
-                  transition: 'all 0.3s ease',
-                  '&:hover': {
-                    transform: 'translateY(-4px)',
-                    boxShadow: '0 12px 24px rgba(0,0,0,0.05)',
-                  }
-                }}
-              >
-                <Box sx={{ mb: 3 }}>
-                  <Box sx={{ 
-                    width: 56,
-                    height: 56,
-                    borderRadius: 3,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: card.iconBg
-                  }}>
-                    {card.icon}
-                  </Box>
-                </Box>
-                
-                <Typography variant="subtitle2" sx={{ color: theme.palette.text.secondary, mb: 0.5 }}>
-                  {card.subtitle}
-                </Typography>
-                <Typography variant="h4" sx={{ fontWeight: 700, mb: 2 }}>
-                  {card.value}
-                </Typography>
-                
-                <Box sx={{ 
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  py: 0.5,
-                  px: 1,
-                  borderRadius: 2,
-                  backgroundColor: card.trending === 'up' ? alpha('#00AB55', 0.1) : alpha('#FF4842', 0.1)
-                }}>
-                  {card.trending === 'up' ? 
-                    <TrendingUpIcon sx={{ color: '#00AB55', fontSize: 16, mr: 0.5 }} /> : 
-                    <TrendingDownIcon sx={{ color: '#FF4842', fontSize: 16, mr: 0.5 }} />
-                  }
-                  <Typography variant="caption" sx={{ 
-                    color: card.trending === 'up' ? '#00AB55' : '#FF4842',
-                    fontWeight: 600
-                  }}>
-                    {card.change}
-                  </Typography>
-                </Box>
-              </Paper>
-            </Grid>
-          ))}
-        </Grid>
 
-        {/* Active Emergency Alert */}
-        {activeEmergency && (
-          <Grid item xs={12} sx={{ mb: 4 }}>
-            <Paper
-              sx={{
-                p: 3,
-                borderRadius: 4,
-                border: '4px solid #dc2626',
-                backgroundColor: alpha('#fee2e2', 0.9),
-                animation: `${pulseAnimation} 1.2s infinite`,
-                boxShadow: '0 0 30px rgba(220, 38, 38, 0.6)',
-              }}
-            >
-              <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="h4" sx={{ 
-                    color: '#dc2626',
-                    fontWeight: 'bold',
-                    animation: `${blinkAnimation} 1s infinite`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 2,
-                    mb: 2
-                  }}>
-                    🚨 EMERGENCY ALERT - IMMEDIATE ACTION REQUIRED!
-                  </Typography>
-                  
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} md={6}>
-                      <Box sx={{ 
-                        backgroundColor: '#dc2626',
-                        color: 'white',
-                        p: 2,
-                        borderRadius: 2,
-                      }}>
-                        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                          Emergency Details
-                        </Typography>
-                        <Typography variant="body1">
-                          <strong>Time:</strong> {new Date(activeEmergency?.timestamp).toLocaleTimeString()}
-                        </Typography>
-                        <Typography variant="body1">
-                          <strong>Location:</strong> {activeEmergency?.location || 'Unknown'}
-                        </Typography>
-                        <Typography variant="body1">
-                          <strong>Status:</strong> {activeEmergency?.status || 'New'}
-                        </Typography>
-                        <Typography variant="body1">
-                          <strong>Patient:</strong> {activeEmergency?.patientName || 'Unknown'}
-                        </Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <Box sx={{ 
-                        backgroundColor: alpha('#dc2626', 0.8),
-                        color: 'white',
-                        p: 2,
-                        borderRadius: 2,
-                        height: '100%'
-                      }}>
-                        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                          Emergency Message
-                        </Typography>
-                        <Typography variant="body1" sx={{ fontStyle: 'italic' }}>
-                          {activeEmergency?.message || 'No additional information provided.'}
-                        </Typography>
-                      </Box>
-                    </Grid>
-                  </Grid>
-                </Box>
-                
-                <Box sx={{ 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  justifyContent: 'center',
-                  gap: 2 
-                }}>
-                  <Button
-                    variant="contained"
-                    size="large"
-                    color="error"
-                    startIcon={<EmergencyShareIcon />}
-                    sx={{ 
-                      py: 1.5,
-                      fontWeight: 'bold',
-                      boxShadow: '0 8px 16px rgba(220, 38, 38, 0.4)'
-                    }}
-                    onClick={handleAcknowledgeEmergency}
-                  >
-                    Acknowledge Emergency
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    size="large"
-                    color="error"
-                    startIcon={<CallIcon />}
-                    sx={{ py: 1.5 }}
-                  >
-                    Contact Emergency Services
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    size="large"
-                    color="error"
-                    startIcon={<DirectionsRunIcon />}
-                    sx={{ py: 1.5 }}
-                  >
-                    Dispatch Medical Team
-                  </Button>
-                </Box>
-              </Box>
-            </Paper>
-          </Grid>
-        )}
+        {/* Tabs */}
+        <Paper sx={{ mb: 4, borderRadius: 3 }}>
+          <Tabs
+            value={currentTab}
+            onChange={handleTabChange}
+            variant="fullWidth"
+            sx={{
+              '& .MuiTab-root': {
+                minHeight: 64,
+                fontSize: '1rem',
+                fontWeight: 600,
+                textTransform: 'none',
+              },
+              '& .Mui-selected': {
+                color: theme.palette.primary.main,
+              },
+            }}
+          >
+            <Tab
+              icon={<InventoryIcon />}
+              label="Inventory Management"
+              iconPosition="start"
+            />
+            <Tab
+              icon={<EventIcon />}
+              label="Appointments"
+              iconPosition="start"
+            />
+            <Tab
+              icon={<ShoppingBasketIcon />}
+              label="Orders"
+              iconPosition="start"
+            />
+            <Tab
+              icon={<LocalShippingIcon />}
+              label="Delivery Personnel"
+              iconPosition="start"
+            />
+          </Tabs>
+        </Paper>
 
-        {/* Main Dashboard Content */}
-        <Grid container spacing={3}>
-          {/* Revenue Chart */}
-          <Grid item xs={12} lg={8} sx={{ mb: 3 }}>
-            <Paper sx={{ 
-              p: 3,
-              height: '100%',
-              borderRadius: 4,
-              background: theme.palette.mode === 'dark' ? 
-                'linear-gradient(135deg, #2d3748 0%, #1a202c 100%)' :
-                'linear-gradient(135deg, #ffffff 0%, #F7F9FC 100%)',
-              boxShadow: '0 2px 20px rgba(0,0,0,0.05)'
-            }}>
-              <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Box>
-                  <Typography variant="h5" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
-                    Revenue Analytics
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Monthly revenue and order trends
-                  </Typography>
-                </Box>
-                <Box sx={{ 
-                  py: 0.5,
-                  px: 2,
-                  borderRadius: 2,
-                  backgroundColor: alpha(theme.palette.success.main, 0.1),
-                  color: theme.palette.success.main
-                }}>
-                  <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                    +12.5% Growth
-                  </Typography>
-                </Box>
-              </Box>
-              <Box sx={{ height: 380 }}>
-                <Line data={revenueChartData} options={revenueChartOptions} />
-              </Box>
-            </Paper>
-          </Grid>
+        {/* Tab Content */}
+        {currentTab === 0 && <InventoryTab />}
+        {currentTab === 1 && <AppointmentsTab />}
+        {currentTab === 2 && <OrdersTab />}
+        {currentTab === 3 && <DeliveryPersonnelTab />}
 
-          {/* Order Status */}
-          <Grid item xs={12} md={6} lg={4}>
-            <Paper sx={{ 
-              p: 3,
-              height: '100%',
-              borderRadius: 4,
-              boxShadow: '0 2px 20px rgba(0,0,0,0.05)'
-            }}>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="h5" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
-                  Order Status
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Distribution of orders by status
-                </Typography>
-              </Box>
-              <Box sx={{ 
-                height: 250, 
-                display: 'flex', 
-                justifyContent: 'center',
-                position: 'relative'
-              }}>
-                <Doughnut data={orderStatusData} options={doughnutOptions} />
-                <Box sx={{ 
-                  position: 'absolute', 
-                  top: '50%', 
-                  left: '50%', 
-                  transform: 'translate(-50%, -50%)',
-                  textAlign: 'center'
-                }}>
-                  <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                    {orderStats.total || 0}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Total Orders
-                  </Typography>
-                </Box>
-              </Box>
-              <Box sx={{ mt: 3 }}>
-                <Grid container spacing={2}>
-                  <Grid item xs={4}>
-                    <Box sx={{ textAlign: 'center' }}>
-                      <Typography variant="h6" sx={{ color: theme.palette.success.main, fontWeight: 'bold' }}>
-                        {orderStats.completed || 0}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Completed
-                      </Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={4}>
-                    <Box sx={{ textAlign: 'center' }}>
-                      <Typography variant="h6" sx={{ color: theme.palette.warning.main, fontWeight: 'bold' }}>
-                        {orderStats.pending || 0}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Pending
-                      </Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={4}>
-                    <Box sx={{ textAlign: 'center' }}>
-                      <Typography variant="h6" sx={{ color: theme.palette.error.main, fontWeight: 'bold' }}>
-                        {orderStats.canceled || 0}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Canceled
-                      </Typography>
-                    </Box>
-                  </Grid>
-                </Grid>
-              </Box>
-            </Paper>
-          </Grid>
-
-          {/* Top Selling Products */}
-          <Grid item xs={12} md={6} lg={4}>
-            <Paper sx={{ 
-              p: 3,
-              height: '100%',
-              borderRadius: 4,
-              boxShadow: '0 2px 20px rgba(0,0,0,0.05)'
-            }}>
-              <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="h5" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
-                  Top Selling Products
-                </Typography>
-                <Chip 
-                  label="This Month" 
-                  size="small" 
-                  color="primary" 
-                  variant="outlined"
-                />
-              </Box>
-              <Box sx={{ height: 320 }}>
-                <Bar data={topSellingChartData} options={barChartOptions} />
-              </Box>
-            </Paper>
-          </Grid>
-
-          {/* Inventory Status */}
-          <Grid item xs={12} md={6} lg={4}>
-            <Paper sx={{ 
-              p: 3,
-              height: '100%',
-              borderRadius: 4,
-              boxShadow: '0 2px 20px rgba(0,0,0,0.05)'
-            }}>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="h5" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
-                  Inventory Status
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Overview of product inventory health
-                </Typography>
-              </Box>
-              <Box sx={{ height: 250, display: 'flex', justifyContent: 'center' }}>
-                <PolarArea data={inventoryStatusData} options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: {
-                      position: 'bottom',
-                      labels: {
-                        padding: 20,
-                      }
-                    }
-                  }
-                }} />
-              </Box>
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Inventory Health Indicators
-                </Typography>
-                <Grid container spacing={1}>
-                  <Grid item xs={12}>
-                    <Box sx={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'space-between',
-                      p: 1,
-                      borderRadius: 1,
-                      bgcolor: alpha('#FF9800', 0.1)
-                    }}>
-                      <Typography variant="body2">
-                        <WarningAmberIcon sx={{ fontSize: 16, color: '#FF9800', mr: 1, verticalAlign: 'text-bottom' }} />
-                        Low Stock Items
-                      </Typography>
-                      <Typography variant="body2" fontWeight="bold" color="#FF9800">
-                        {lowStockMedicines.length}
-                      </Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Box sx={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'space-between',
-                      p: 1,
-                      borderRadius: 1,
-                      bgcolor: alpha('#F44336', 0.1)
-                    }}>
-                      <Typography variant="body2">
-                        <ErrorOutlineIcon sx={{ fontSize: 16, color: '#F44336', mr: 1, verticalAlign: 'text-bottom' }} />
-                        Expiring Soon
-                      </Typography>
-                      <Typography variant="body2" fontWeight="bold" color="#F44336">
-                        {expiringMedicines.length}
-                      </Typography>
-                    </Box>
-                  </Grid>
-                </Grid>
-              </Box>
-            </Paper>
-          </Grid>
-
-          {/* Notifications/Alerts */}
-          <Grid item xs={12} md={6} lg={4}>
-            <Paper sx={{ 
-              p: 3,
-              height: '100%',
-              borderRadius: 4,
-              boxShadow: '0 2px 20px rgba(0,0,0,0.05)'
-            }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h5" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
-                  Notifications
-                </Typography>
-                <Badge badgeContent={notifications.filter(n => !n.read).length} color="error">
-                  <NotificationsActiveIcon color="action" />
-                </Badge>
-              </Box>
-              <List sx={{ 
-                maxHeight: 320, 
-                overflow: 'auto',
-                '&::-webkit-scrollbar': {
-                  width: '4px',
-                },
-                '&::-webkit-scrollbar-track': {
-                  background: alpha(theme.palette.primary.main, 0.05),
-                },
-                '&::-webkit-scrollbar-thumb': {
-                  background: alpha(theme.palette.primary.main, 0.2),
-                  borderRadius: '2px',
-                }
-              }}>
-                {notifications.length > 0 ? (
-                  notifications.map((notification, index) => (
-                    <React.Fragment key={index}>
-                      <ListItem 
-                        sx={{ 
-                          px: 1, 
-                          py: 1.5, 
-                          borderRadius: 2,
-                          bgcolor: notification.read ? 'transparent' : alpha(theme.palette.primary.main, 0.05),
-                          '&:hover': {
-                            bgcolor: alpha(theme.palette.primary.main, 0.1)
-                          }
-                        }}
-                      >
-                        <ListItemText
-                          primary={
-                            <Typography 
-                              variant="body2" 
-                              fontWeight={notification.read ? "normal" : "medium"}
-                            >
-                              {notification.message}
-                            </Typography>
-                          }
-                          secondary={
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
-                              <Typography variant="caption" color="text.secondary">
-                                {notification.category || 'System'}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {new Date(notification.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </Typography>
-                            </Box>
-                          }
-                        />
-                      </ListItem>
-                      {index < notifications.length - 1 && (
-                        <Divider component="li" variant="inset" sx={{ ml: 1 }} />
-                      )}
-                    </React.Fragment>
-                  ))
-                ) : (
-                  <Box sx={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    height: 150,
-                    opacity: 0.6
-                  }}>
-                    <NotificationsIcon sx={{ fontSize: 48, color: theme.palette.text.secondary, mb: 2 }} />
-                    <Typography variant="body2" color="text.secondary">
-                      No notifications yet
-                    </Typography>
-                  </Box>
-                )}
-              </List>
-              <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between' }}>
-                <Button 
-                  variant="outlined" 
-                  color="primary" 
-                  size="small"
-                >
-                  Mark All as Read
-                </Button>
-                <Button 
-                  variant="contained" 
-                  color="primary" 
-                  size="small"
-                >
-                  View All
-                </Button>
-              </Box>
-            </Paper>
-          </Grid>
-
-          {/* Expiring Medicines Alert */}
-          {expiringMedicines.length > 0 && (
-            <Grid item xs={12}>
-              <Paper
-                sx={{
-                  p: 3,
-                  borderRadius: 4,
-                  border: `2px solid ${theme.palette.error.main}`,
-                  backgroundColor: alpha(theme.palette.error.light, 0.1),
-                  position: 'relative',
-                  overflow: 'hidden',
-                  '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    border: `2px solid ${theme.palette.error.main}`,
-                    borderRadius: 4,
-                    animation: `${pulseAnimation} 2s infinite`,
-                    pointerEvents: 'none',
-                  },
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                  <WarningAmberIcon sx={{ fontSize: 32, color: theme.palette.error.main }} />
-                  <Typography
-                    variant="h5"
-                    sx={{
-                      color: theme.palette.error.main,
-                      fontWeight: 'bold',
-                    }}
-                  >
-                    Medicines Expiring Soon
-                  </Typography>
-                  <Chip
-                    label={`${expiringMedicines.length} Items Need Attention`}
-                    color="error"
-                    sx={{
-                      animation: `${blinkAnimation} 2s infinite`,
-                      fontWeight: 'bold',
-                    }}
-                  />
-                </Box>
-                
-                <TableContainer sx={{ maxHeight: 300 }}>
-                  <Table stickyHeader aria-label="expiring medicines table" size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Medicine Name</TableCell>
-                        <TableCell>Category</TableCell>
-                        <TableCell>Batch No.</TableCell>
-                        <TableCell>Expiry Date</TableCell>
-                        <TableCell>Days Left</TableCell>
-                        <TableCell>Stock</TableCell>
-                        <TableCell align="right">Actions</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {expiringMedicines.map((medicine) => {
-                        const daysUntilExpiry = Math.ceil(
-                          (new Date(medicine.expiryDate) - new Date()) / (1000 * 60 * 60 * 24)
-                        );
-                        const isVeryCritical = daysUntilExpiry <= 5;
-                        
-                        return (
-                          <TableRow
-                            key={medicine._id}
-                            sx={{
-                              bgcolor: isVeryCritical ? alpha(theme.palette.error.main, 0.1) : 'inherit',
-                              '&:hover': {
-                                bgcolor: alpha(theme.palette.error.main, 0.05),
-                              },
-                            }}
-                          >
-                            <TableCell>
-                              <Typography variant="body2" fontWeight="medium">
-                                {medicine.name}
-                              </Typography>
-                            </TableCell>
-                            <TableCell>{medicine.category || '-'}</TableCell>
-                            <TableCell>{medicine.batchNo || '-'}</TableCell>
-                            <TableCell>
-                              {new Date(medicine.expiryDate).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell>
-                              <Chip
-                                label={`${daysUntilExpiry} days`}
-                                size="small"
-                                color={isVeryCritical ? 'error' : 'warning'}
-                                sx={{ fontWeight: 'bold' }}
-                              />
-                            </TableCell>
-                            <TableCell>{medicine.stock}</TableCell>
-                            <TableCell align="right">
-                              <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                                <Button
-                                  variant="contained"
-                                  color="primary"
-                                  size="small"
-                                  startIcon={<MedicalServicesIcon />}
-                                  onClick={() => {
-                                    // Navigate to AddMedicine with edit mode
-                                    window.location.href = `/add-medicine?editId=${medicine._id}`;
-                                  }}
-                                >
-                                  Manage
-                                </Button>
-                                <Button
-                                  variant="outlined"
-                                  color="error"
-                                  size="small"
-                                  startIcon={<DeleteIcon />}
-                                  onClick={() => handleDeleteMedicine(medicine._id, medicine.name)}
-                                >
-                                  Delete
-                                </Button>
-                              </Box>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-                
-                <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    startIcon={<CalendarTodayIcon />}
-                    onClick={() => {
-                      setSnackbar({
-                        open: true,
-                        message: 'Stock check scheduled',
-                        severity: 'info',
-                      });
-                    }}
-                  >
-                    Schedule Stock Check
-                  </Button>
-                  <Button
-                    variant="contained"
-                    color="error"
-                    startIcon={<LocalShippingIcon />}
-                    onClick={() => {
-                      setSnackbar({
-                        open: true,
-                        message: 'Return process initiated',
-                        severity: 'info',
-                      });
-                    }}
-                  >
-                    Initiate Return Process
-                  </Button>
-                </Box>
-              </Paper>
-            </Grid>
-          )}
-
-          {/* Low Stock Medicines */}
-          {lowStockMedicines.length > 0 && (
-            <Grid item xs={12}>
-              <Paper
-                sx={{
-                  p: 3,
-                  borderRadius: 4,
-                  border: `2px solid ${theme.palette.warning.main}`,
-                  backgroundColor: alpha(theme.palette.warning.light, 0.1),
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                  <WarningAmberIcon sx={{ fontSize: 32, color: theme.palette.warning.main }} />
-                  <Typography
-                    variant="h5"
-                    sx={{
-                      color: theme.palette.warning.main,
-                      fontWeight: 'bold',
-                    }}
-                  >
-                    Low Stock Alerts
-                  </Typography>
-                  <Chip
-                    label={`${lowStockMedicines.length} Items Low in Stock`}
-                    color="warning"
-                    sx={{ fontWeight: 'bold' }}
-                  />
-                </Box>
-                
-                <TableContainer sx={{ maxHeight: 300 }}>
-                  <Table stickyHeader aria-label="low stock medicines table" size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Medicine Name</TableCell>
-                        <TableCell>Category</TableCell>
-                        <TableCell>Current Stock</TableCell>
-                        <TableCell>Min. Required</TableCell>
-                        <TableCell>Last Restocked</TableCell>
-                        <TableCell align="right">Actions</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {lowStockMedicines.map((medicine) => {
-                        const isVeryCritical = medicine.stock <= 3;
-                        
-                        return (
-                          <TableRow
-                            key={medicine._id}
-                            sx={{
-                              bgcolor: isVeryCritical ? alpha(theme.palette.warning.main, 0.1) : 'inherit',
-                              '&:hover': {
-                                bgcolor: alpha(theme.palette.warning.main, 0.05),
-                              },
-                            }}
-                          >
-                            <TableCell>
-                              <Typography variant="body2" fontWeight="medium">
-                                {medicine.name}
-                              </Typography>
-                            </TableCell>
-                            <TableCell>{medicine.category || '-'}</TableCell>
-                            <TableCell>
-                              <Typography
-                                variant="body2"
-                                color={isVeryCritical ? 'error.main' : 'text.primary'}
-                              >
-                                {medicine.stock}
-                              </Typography>
-                            </TableCell>
-                            <TableCell>{medicine.minRequiredStock || 10}</TableCell>
-                            <TableCell>
-                              {medicine.lastRestocked
-                                ? new Date(medicine.lastRestocked).toLocaleDateString()
-                                : 'N/A'}
-                            </TableCell>
-                            <TableCell align="right">
-                              <Button
-                                variant="contained"
-                                color="warning"
-                                size="small"
-                                startIcon={<InventoryIcon />}
-                                onClick={() => {
-                                  setSnackbar({
-                                    open: true,
-                                    message: `Restock initiated for ${medicine.name}`,
-                                    severity: 'info',
-                                  });
-                                }}
-                              >
-                                Restock
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-
-                <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-                  <Button
-                    variant="outlined"
-                    color="warning"
-                    startIcon={<NotificationsActiveIcon />}
-                    onClick={handleNotifySuppliers}
-                  >
-                    Notify Suppliers
-                  </Button>
-                  <Button
-                    variant="contained"
-                    color="warning"
-                    startIcon={<LocalShippingIcon />}
-                    onClick={handleCreatePurchaseOrder}
-                  >
-                    Create Purchase Order
-                  </Button>
-                </Box>
-              </Paper>
-            </Grid>
-          )}
-
-          {/* Recent Emergencies */}
-          <Grid item xs={12}>
-            <Paper
-              sx={{
-                p: 3,
-                borderRadius: 4,
-                boxShadow: '0 2px 20px rgba(0,0,0,0.05)',
-              }}
-            >
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h5" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
-                  Recent Emergencies
-                </Typography>
-                <Button
-                  variant="outlined"
-                  color="primary"
-                  size="small"
-                  startIcon={<EmergencyShareIcon />}
-                  onClick={() => {
-                    setSnackbar({
-                      open: true,
-                      message: 'Viewing all emergencies',
-                      severity: 'info',
-                    });
-                  }}
-                >
-                  View All
-                </Button>
-              </Box>
-              <TableContainer sx={{ maxHeight: 300 }}>
-                <Table stickyHeader aria-label="recent emergencies table" size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Time</TableCell>
-                      <TableCell>Location</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Patient</TableCell>
-                      <TableCell>Message</TableCell>
-                      <TableCell align="right">Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {emergencies.length > 0 ? (
-                      emergencies.slice(0, 5).map((emergency) => (
-                        <TableRow
-                          key={emergency._id}
-                          sx={{
-                            '&:hover': {
-                              bgcolor: alpha(theme.palette.primary.main, 0.05),
-                            },
-                          }}
-                        >
-                          <TableCell>
-                            {new Date(emergency.timestamp).toLocaleTimeString()}
-                          </TableCell>
-                          <TableCell>{emergency.location || 'Unknown'}</TableCell>
-                          <TableCell>
-                            <Chip
-                              label={emergency.status}
-                              color={
-                                emergency.status === 'CRITICAL'
-                                  ? 'error'
-                                  : emergency.status === 'RESOLVED'
-                                  ? 'success'
-                                  : 'warning'
-                              }
-                              size="small"
-                            />
-                          </TableCell>
-                          <TableCell>{emergency.patientName || 'Unknown'}</TableCell>
-                          <TableCell>
-                            <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
-                              {emergency.message || 'N/A'}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="right">
-                            <Button
-                              variant="contained"
-                              color="primary"
-                              size="small"
-                              startIcon={<EmergencyShareIcon />}
-                              onClick={() => {
-                                setActiveEmergency(emergency);
-                                soundManager.play('emergency', true, 30000);
-                              }}
-                              disabled={emergency.status === 'RESOLVED'}
-                            >
-                              View
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={6} align="center">
-                          <Box
-                            sx={{
-                              py: 3,
-                              display: 'flex',
-                              flexDirection: 'column',
-                              alignItems: 'center',
-                              opacity: 0.6,
-                            }}
-                          >
-                            <EmergencyShareIcon
-                              sx={{ fontSize: 48, color: theme.palette.text.secondary, mb: 2 }}
-                            />
-                            <Typography variant="body2" color="text.secondary">
-                              No recent emergencies
-                            </Typography>
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Paper>
-          </Grid>
-
-          {/* Quick Actions */}
-          <Grid item xs={12}>
-            <Paper
-              sx={{
-                p: 3,
-                borderRadius: 4,
-                boxShadow: '0 2px 20px rgba(0,0,0,0.05)',
-              }}
-            >
-              <Typography variant="h5" sx={{ fontWeight: 600, color: theme.palette.text.primary, mb: 3 }}>
-                Quick Actions
-              </Typography>
-              {quickActions}
-            </Paper>
-          </Grid>
-        </Grid>
-         
         {/* Snackbar for Notifications */}
         <Snackbar
           open={snackbar.open}
@@ -2188,20 +3000,258 @@ const Dashboard = () => {
             onClose={handleSnackbarClose}
             severity={snackbar.severity}
             sx={{ width: '100%' }}
-            action={
-              <IconButton
-                size="small"
-                aria-label="close"
-                color="inherit"
-                onClick={handleSnackbarClose}
-              >
-                <CloseIcon fontSize="small" />
-              </IconButton>
-            }
           >
             {snackbar.message}
           </Alert>
         </Snackbar>
+
+        {/* Report Generation Dialog */}
+        <Dialog
+          open={reportDialogOpen}
+          onClose={() => setReportDialogOpen(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <PictureAsPdfIcon />
+              Generate Report
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            <Grid container spacing={3} sx={{ mt: 1 }}>
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel>Report Type</InputLabel>
+                  <Select
+                    value={reportType}
+                    onChange={(e) => setReportType(e.target.value)}
+                    label="Report Type"
+                  >
+                    <MenuItem value="inventory">Inventory Management Report</MenuItem>
+                    <MenuItem value="appointments">Appointments Report</MenuItem>
+                    <MenuItem value="orders">Orders Report</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  type="date"
+                  label="Start Date"
+                  value={reportDateRange.start}
+                  onChange={(e) => setReportDateRange(prev => ({ ...prev, start: e.target.value }))}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  type="date"
+                  label="End Date"
+                  value={reportDateRange.end}
+                  onChange={(e) => setReportDateRange(prev => ({ ...prev, end: e.target.value }))}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  Report Options
+                </Typography>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={reportFilters.includeDetails || false}
+                      onChange={(e) => setReportFilters(prev => ({ ...prev, includeDetails: e.target.checked }))}
+                    />
+                  }
+                  label="Include detailed breakdown"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={reportFilters.includeCharts || false}
+                      onChange={(e) => setReportFilters(prev => ({ ...prev, includeCharts: e.target.checked }))}
+                    />
+                  }
+                  label="Include charts and graphs"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={reportFilters.includeRecommendations || false}
+                      onChange={(e) => setReportFilters(prev => ({ ...prev, includeRecommendations: e.target.checked }))}
+                    />
+                  }
+                  label="Include recommendations"
+                />
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setReportDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleGenerateReport}
+              variant="contained"
+              disabled={!reportType || generatingReport}
+              startIcon={generatingReport ? <CircularProgress size={20} /> : <PictureAsPdfIcon />}
+            >
+              {generatingReport ? 'Generating...' : 'Generate Report'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Report Display Dialog */}
+        <Dialog
+          open={!!reportData}
+          onClose={() => setReportData(null)}
+          maxWidth="lg"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6">
+                {reportData?.reportType}
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<FileDownloadIcon />}
+                  onClick={handleDownloadReport}
+                >
+                  Download HTML
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<PrintIcon />}
+                  onClick={handlePrintReport}
+                >
+                  Print
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<PictureAsPdfIcon />}
+                  onClick={handleExportPDF}
+                >
+                  Export PDF
+                </Button>
+              </Box>
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            {reportData && (
+              <Box sx={{ mt: 2 }}>
+                {/* Summary Cards */}
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  📊 Summary
+                </Typography>
+                <Grid container spacing={2} sx={{ mb: 3 }}>
+                  {Object.entries(reportData.summary).map(([key, value]) => (
+                    <Grid item xs={6} md={3} key={key}>
+                      <Paper
+                        sx={{
+                          p: 2,
+                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                          color: 'white',
+                          borderRadius: 2,
+                          textAlign: 'center'
+                        }}
+                      >
+                        <Typography variant="h4" fontWeight="bold">
+                          {typeof value === 'number' ? value.toLocaleString() : value}
+                        </Typography>
+                        <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                          {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                        </Typography>
+                      </Paper>
+                    </Grid>
+                  ))}
+                </Grid>
+
+                {/* Sections */}
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  📋 Detailed Sections
+                </Typography>
+                <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
+                  {Object.entries(reportData.sections).map(([sectionKey, section]) => (
+                    <Paper key={sectionKey} sx={{ mb: 2, overflow: 'hidden' }}>
+                      <Box
+                        sx={{
+                          p: 2,
+                          background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                          color: 'white',
+                          fontWeight: 'bold'
+                        }}
+                      >
+                        {section.title}
+                      </Box>
+                      <Box sx={{ p: 2 }}>
+                        {section.items.slice(0, 5).map((item, index) => (
+                          <Paper
+                            key={index}
+                            sx={{
+                              p: 2,
+                              mb: 1,
+                              borderLeft: 4,
+                              borderColor: item.priority === 'CRITICAL' ? 'error.main' :
+                                item.priority === 'WARNING' ? 'warning.main' : 'success.main'
+                            }}
+                          >
+                            <Typography variant="subtitle1" fontWeight="bold">
+                              {item.name || item.patientName || item.customerName || item.orderId}
+                            </Typography>
+                            <Grid container spacing={1} sx={{ mt: 1 }}>
+                              {Object.entries(item).filter(([k, v]) =>
+                                k !== 'name' && k !== 'patientName' && k !== 'customerName' && k !== 'orderId'
+                              ).map(([key, value]) => (
+                                <Grid item xs={6} key={key}>
+                                  <Typography variant="body2" color="text.secondary">
+                                    <strong>{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:</strong> {value}
+                                  </Typography>
+                                </Grid>
+                              ))}
+                            </Grid>
+                          </Paper>
+                        ))}
+                        {section.items.length > 5 && (
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                            +{section.items.length - 5} more items...
+                          </Typography>
+                        )}
+                      </Box>
+                    </Paper>
+                  ))}
+                </Box>
+
+                {/* Recommendations */}
+                {reportData.recommendations && (
+                  <>
+                    <Typography variant="h6" sx={{ mb: 2, mt: 3 }}>
+                      💡 Recommendations
+                    </Typography>
+                    <Paper sx={{ p: 2, background: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)' }}>
+                      {reportData.recommendations.map((rec, index) => (
+                        <Typography key={index} variant="body2" sx={{ mb: 1 }}>
+                          • {rec}
+                        </Typography>
+                      ))}
+                    </Paper>
+                  </>
+                )}
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setReportData(null)}>
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Container>
     </Box>
   );

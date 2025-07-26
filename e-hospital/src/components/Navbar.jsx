@@ -3,7 +3,7 @@ import { assets } from "../assets/assets";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Menu, X, ChevronDown, User, Calendar, LogOut, Search, Home, Users, HelpCircle, Phone, ShoppingBag, MessageCircle, Heart } from "lucide-react";
 
-const Navbar = () => {
+const Navbar = ({ maintenanceMode = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -11,7 +11,7 @@ const Navbar = () => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')));
-  
+
   useEffect(() => {
     const handleScroll = () => {
       if (window.scrollY > 10) {
@@ -20,11 +20,11 @@ const Navbar = () => {
         setIsScrolled(false);
       }
     };
-    
+
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-  
+
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [location]);
@@ -49,10 +49,10 @@ const Navbar = () => {
     { path: "/about", label: "About", icon: <HelpCircle size={18} /> },
     { path: "/contact", label: "Contact", icon: <Phone size={18} /> },
     { path: "/pharmacy", label: "Pharmacy", icon: <ShoppingBag size={18} /> },
-    { 
-      path: "/stress-relief", 
-      label: "Stress Relief", 
-      icon: <Heart size={18} /> 
+    {
+      path: "/stress-relief",
+      label: "Stress Relief",
+      icon: <Heart size={18} />
     },
   ];
 
@@ -69,14 +69,17 @@ const Navbar = () => {
     navigate('/login');
   };
 
+  if (maintenanceMode) {
+    return null; // Hide navbar completely during maintenance mode
+  }
+
   return (
     <>
-      <nav 
-        className={`fixed top-0 left-0 right-0 flex items-center justify-between px-5 py-3 transition-all duration-300 z-50 ${
-          isScrolled 
-            ? "bg-white shadow-lg" 
-            : "bg-white/95 border-b border-gray-200"
-        }`}
+      <nav
+        className={`fixed top-0 left-0 right-0 flex items-center justify-between px-5 py-3 transition-all duration-300 z-50 ${isScrolled
+          ? "bg-white shadow-lg"
+          : "bg-white/95 border-b border-gray-200"
+          }`}
       >
         {/* Logo Container */}
         <div className="flex items-center">
@@ -96,10 +99,9 @@ const Navbar = () => {
                 <NavLink
                   to={link.path}
                   className={({ isActive }) =>
-                    `px-4 py-2 rounded-md flex items-center transition-colors duration-200 ${
-                      isActive
-                        ? "text-blue-600 bg-blue-50 font-medium"
-                        : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
+                    `px-4 py-2 rounded-md flex items-center transition-colors duration-200 ${isActive
+                      ? "text-blue-600 bg-blue-50 font-medium"
+                      : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
                     }`
                   }
                 >
@@ -115,16 +117,16 @@ const Navbar = () => {
         <div className="flex items-center space-x-3 md:space-x-5">
           {token ? (
             <div className="relative">
-              <button 
+              <button
                 onClick={toggleUserMenu}
                 className="flex items-center space-x-2 rounded-full bg-blue-50 px-3 py-2 hover:bg-blue-100 transition-colors"
                 aria-expanded={userMenuOpen}
                 aria-haspopup="true"
               >
-                <img 
-                  className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm" 
+                <img
+                  className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm"
                   src={user?.image || assets.profile} // Use user image if available, fallback to default
-                  alt={user?.name || "Profile"} 
+                  alt={user?.name || "Profile"}
                 />
                 <ChevronDown size={16} className={`text-gray-600 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
               </button>
@@ -137,28 +139,28 @@ const Navbar = () => {
                     <p className="text-xs text-gray-500 truncate">{user?.email || ''}</p>
                   </div>
                   <div className="py-1">
-                    <button 
+                    <button
                       onClick={() => { navigate('/profile'); setUserMenuOpen(false); }}
                       className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50"
                     >
                       <User size={16} className="mr-3 text-blue-600" />
                       My Profile
                     </button>
-                    <button 
+                    <button
                       onClick={() => { navigate('/chat'); setUserMenuOpen(false); }}
                       className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50"
                     >
                       <MessageCircle size={16} className="mr-3 text-blue-600" />
                       Chat
                     </button>
-                    <button 
+                    <button
                       onClick={() => { navigate('/appointment'); setUserMenuOpen(false); }}
                       className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50"
                     >
                       <Calendar size={16} className="mr-3 text-blue-600" />
                       My Appointments
                     </button>
-                    <button 
+                    <button
                       onClick={() => { navigate('/orders'); setUserMenuOpen(false); }}
                       className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50"
                     >
@@ -167,7 +169,7 @@ const Navbar = () => {
                     </button>
                   </div>
                   <div className="py-1 border-t border-gray-100">
-                    <button 
+                    <button
                       onClick={handleLogout}
                       className="flex items-center w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                     >
@@ -200,16 +202,15 @@ const Navbar = () => {
       </nav>
 
       {/* Mobile Navigation Menu */}
-      <div 
-        className={`fixed inset-0 z-40 transform ${
-          mobileMenuOpen ? "translate-x-0" : "translate-x-full"
-        } transition-transform duration-300 ease-in-out lg:hidden`}
+      <div
+        className={`fixed inset-0 z-40 transform ${mobileMenuOpen ? "translate-x-0" : "translate-x-full"
+          } transition-transform duration-300 ease-in-out lg:hidden`}
       >
         <div className="absolute inset-0 bg-gray-800 bg-opacity-50" onClick={() => setMobileMenuOpen(false)}></div>
         <div className="absolute right-0 top-0 h-full w-64 bg-white shadow-xl flex flex-col">
           <div className="flex items-center justify-between p-4 border-b border-gray-200">
             <img className="w-32" src={assets.logo1} alt="CareLink" />
-            <button 
+            <button
               className="p-2 rounded-md hover:bg-gray-100"
               onClick={() => setMobileMenuOpen(false)}
             >
@@ -224,10 +225,9 @@ const Navbar = () => {
                   <NavLink
                     to={link.path}
                     className={({ isActive }) =>
-                      `flex items-center px-4 py-3 rounded-md transition-colors ${
-                        isActive
-                          ? "bg-blue-50 text-blue-600 font-medium"
-                          : "text-gray-700 hover:bg-gray-100"
+                      `flex items-center px-4 py-3 rounded-md transition-colors ${isActive
+                        ? "bg-blue-50 text-blue-600 font-medium"
+                        : "text-gray-700 hover:bg-gray-100"
                       }`
                     }
                   >
@@ -243,38 +243,38 @@ const Navbar = () => {
             {token ? (
               <div className="space-y-2">
                 <div className="flex items-center px-4 py-2">
-                  <img 
-                    className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm" 
+                  <img
+                    className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
                     src={user?.image || assets.profile}
-                    alt={user?.name || "Profile"} 
+                    alt={user?.name || "Profile"}
                   />
                   <div className="ml-3">
                     <p className="text-sm font-medium text-gray-900">{user?.name || 'User'}</p>
                     <p className="text-xs text-gray-500">{user?.email || ''}</p>
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => navigate('/profile')}
                   className="flex items-center w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100 rounded-md"
                 >
                   <User size={18} className="mr-3 text-blue-600" />
                   My Profile
                 </button>
-                <button 
+                <button
                   onClick={() => navigate('/appointment')}
                   className="flex items-center w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100 rounded-md"
                 >
                   <Calendar size={18} className="mr-3 text-blue-600" />
                   My Appointments
                 </button>
-                <button 
+                <button
                   onClick={() => navigate('/chat')}
                   className="flex items-center w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100 rounded-md"
                 >
                   <MessageCircle size={18} className="mr-3 text-blue-600" />
                   Chat
                 </button>
-                <button 
+                <button
                   onClick={handleLogout}
                   className="flex items-center w-full px-4 py-2 text-left text-red-600 hover:bg-red-50 rounded-md"
                 >

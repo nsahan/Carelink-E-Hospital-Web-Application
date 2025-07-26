@@ -55,14 +55,7 @@ const StressRelief = () => {
       color: 'bg-orange-100 text-orange-600',
       component: <MuscleRelaxation onComplete={handleActivityComplete} />
     },
-    {
-      id: 'meditation',
-      title: 'Guided Meditation',
-      description: 'Follow guided meditation sessions',
-      icon: <Brain className="w-6 h-6" />,
-      color: 'bg-purple-100 text-purple-600',
-      component: <MeditationTimer onComplete={handleActivityComplete} />
-    },
+   
     {
       id: 'breathing',
       title: 'Breathing Exercises',
@@ -71,14 +64,7 @@ const StressRelief = () => {
       color: 'bg-blue-100 text-blue-600',
       component: <BreathingExercise onComplete={handleActivityComplete} />
     },
-    {
-      id: 'game',
-      title: 'Calmness Games',
-      description: 'Play relaxing mini-games',
-      icon: <Gamepad className="w-6 h-6" />,
-      color: 'bg-green-100 text-green-600',
-      component: <CalmnessGame onComplete={handleActivityComplete} />
-    },
+  
     {
       id: 'mindfulness-puzzle',
       title: 'Mindfulness Puzzle',
@@ -88,14 +74,7 @@ const StressRelief = () => {
       component: <MindfulnessPuzzle onComplete={handleActivityComplete} />
     },
    
-     {
-      id: 'color-memory',
-      title: 'Mindfulness Journal',
-      description: 'Reflect on your day and emotions',
-      icon: <Brain className="w-6 h-6" />,
-      color: 'bg-green-100 text-green-600',
-      component: <MindfulnessJournal onComplete={handleActivityComplete} />
-    },
+   
      {
       id: 'Zengarden',
       title: 'Painting Zen Garden',
@@ -112,14 +91,7 @@ const StressRelief = () => {
       color: 'bg-emerald-100 text-emerald-600',
       component: <TherapyJournal onComplete={handleActivityComplete} />
     },
-    {
-      id: 'mindfulness-meditation',
-      title: 'Mindfulness Meditation',
-      description: 'Present-moment awareness practices',
-      icon: <Brain className="w-6 h-6" />,
-      color: 'bg-purple-100 text-purple-600',
-      component: <MindfulnessMeditation onComplete={handleActivityComplete} />
-    }
+   
   ];
 
   useEffect(() => {

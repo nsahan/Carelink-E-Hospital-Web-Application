@@ -1,22 +1,21 @@
-import mongoose from "mongoose";
+  import mongoose from "mongoose";
 
-const conversationSchema = new mongoose.Schema(
-  {
-    participants: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        refPath: "participantModel",
+  const conversationSchema = new mongoose.Schema(
+    {
+      participants: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
+      ],
+      lastMessage: {
+        content: String,
+        sender: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        createdAt: { type: Date, default: Date.now },
       },
-    ],
-    participantModel: {
-      type: String,
-      enum: ["User", "Doctor"],
-      required: true,
     },
-    lastMessage: String,
-    lastMessageTime: Date,
-  },
-  { timestamps: true }
-);
+    { timestamps: true }
+  );
 
-export default mongoose.model("Conversation", conversationSchema);
+  export default mongoose.model("Conversation", conversationSchema);

@@ -6,6 +6,7 @@ import mongoose from "mongoose";
 
 import orderRoutes from "./routes/orderRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
+import deliveryRoutes from "./routes/deliveryRoutes.js";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
@@ -47,6 +48,10 @@ mongoose
 // Routes
 app.use("/v1/api/orders", orderRoutes);
 app.use("/api/payment", paymentRoutes);
+app.use("/api/delivery", deliveryRoutes);
+
+const settingsRoutes = require("./routes/settingsRoutes");
+app.use("/api/settings", settingsRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

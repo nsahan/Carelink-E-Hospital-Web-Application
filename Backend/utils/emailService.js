@@ -97,37 +97,122 @@ export const sendAppointmentConfirmation = async (
   const {
     doctorName,
     date,
-    time,
+    queueNumber,
+    estimatedTime,
     location = "Main Hospital Branch",
+    status = "confirmed",
+    message,
+    reason = "due to an unavoidable circumstance"
   } = appointmentDetails;
+
+  let emailSubject = "Appointment Confirmation - CareLink Hospital";
+  let headerText = "Appointment Confirmation";
+  let headerColor = "#2563eb";
+  let bgColor = "#f8fafc";
+  let borderColor = "#2563eb";
+
+  if (status === "cancelled") {
+    emailSubject = "Important Update About Your Appointment - CareLink Hospital";
+    headerText = "Appointment Update";
+    headerColor = "#6366f1"; // Using indigo instead of red for a softer look
+    bgColor = "#eef2ff";
+    borderColor = "#6366f1";
+  } else if (status === "completed") {
+    emailSubject = "Appointment Completed - CareLink Hospital";
+    headerText = "Appointment Completed";
+    headerColor = "#0891b2";
+    bgColor = "#ecfeff";
+    borderColor = "#0891b2";
+  }
+
+  const getCancellationMessage = () => `
+    <div style="color: #4b5563;">
+      <p style="margin-bottom: 15px;">We hope this message finds you well. We wanted to inform you about an important update regarding your upcoming appointment.</p>
+      
+      <p style="margin-bottom: 15px;">We regret to inform you that Dr. ${doctorName} has to reschedule the appointment scheduled for ${new Date(date).toLocaleDateString()} at ${estimatedTime || 'TBD'} (Queue #${queueNumber}) ${reason}.</p>
+      
+      <div style="background-color: #fff; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e5e7eb;">
+        <h4 style="color: #4f46e5; margin-top: 0;">What happens next?</h4>
+        <ul style="list-style-type: none; padding: 0; margin: 0;">
+          <li style="margin: 10px 0; display: flex; align-items: center;">
+            <span style="color: #4f46e5; margin-right: 10px;">✓</span>
+            Our team will contact you within 24 hours to reschedule your appointment
+          </li>
+          <li style="margin: 10px 0; display: flex; align-items: center;">
+            <span style="color: #4f46e5; margin-right: 10px;">✓</span>
+            You'll get priority booking for the next available slot
+          </li>
+          <li style="margin: 10px 0; display: flex; align-items: center;">
+            <span style="color: #4f46e5; margin-right: 10px;">✓</span>
+            If you prefer, you can also reschedule online through our portal
+          </li>
+        </ul>
+      </div>
+
+      <p style="margin-bottom: 15px;">We understand this may cause inconvenience, and we sincerely apologize. Your health is our top priority, and we are committed to providing you with the best possible care.</p>
+    </div>
+  `;
 
   const emailTemplate = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-      <h2 style="color: #2563eb; text-align: center;">Appointment Confirmation</h2>
-      <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+      <h2 style="color: ${headerColor}; text-align: center;">${headerText}</h2>
+      <div style="background-color: ${bgColor}; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid ${borderColor}">
         <h3 style="color: #1e293b; margin-bottom: 15px;">Dear Patient,</h3>
-        <p style="color: #475569;">Your appointment has been successfully scheduled!</p>
-        <div style="margin: 20px 0;">
-          <p style="margin: 10px 0;"><strong>Doctor:</strong> ${doctorName}</p>
-          <p style="margin: 10px 0;"><strong>Date:</strong> ${new Date(
-            date
-          ).toLocaleDateString()}</p>
-          <p style="margin: 10px 0;"><strong>Time:</strong> ${time}</p>
-          <p style="margin: 10px 0;"><strong>Location:</strong> ${location}</p>
-        </div>
-        <div style="background-color: #fff; padding: 15px; border-left: 4px solid #2563eb; margin: 20px 0;">
-          <p style="color: #475569; margin: 0;">Please arrive 15 minutes before your scheduled appointment time.</p>
-        </div>
+        ${status === "confirmed" ? `
+          <p style="color: #475569;">Your appointment has been confirmed!</p>
+          <div style="margin: 20px 0;">
+            <p style="margin: 10px 0;"><strong>Doctor:</strong> ${doctorName}</p>
+            <p style="margin: 10px 0;"><strong>Date:</strong> ${new Date(date).toLocaleDateString()}</p>
+            <p style="margin: 10px 0;"><strong>Estimated Time:</strong> ${estimatedTime || 'TBD'}</p>
+            <p style="margin: 10px 0;"><strong>Queue Number:</strong> #${queueNumber}</p>
+            <p style="margin: 10px 0;"><strong>Location:</strong> ${location}</p>
+          </div>
+        ` : status === "cancelled" ? 
+          getCancellationMessage()
+        : status === "completed" ? `
+          <p style="color: #0891b2;">Your appointment has been completed.</p>
+          <div style="margin: 20px 0;">
+            <p style="margin: 10px 0;"><strong>Doctor:</strong> ${doctorName}</p>
+            <p style="margin: 10px 0;"><strong>Date:</strong> ${new Date(date).toLocaleDateString()}</p>
+            <p style="margin: 10px 0;"><strong>Time:</strong> ${estimatedTime || 'TBD'}</p>
+            <p style="margin: 10px 0;"><strong>Queue Number:</strong> #${queueNumber}</p>
+          </div>
+        ` : ''}
+        
+        ${message && status !== "cancelled" ? `
+          <div style="background-color: #fff; padding: 15px; border-left: 4px solid ${headerColor}; margin: 20px 0;">
+            <p style="color: #475569; margin: 0;">${message}</p>
+          </div>
+        ` : ''}
       </div>
       <div style="text-align: center; margin-top: 20px; color: #64748b;">
-        <p>If you need to reschedule or cancel your appointment, please do so at least 24 hours in advance.</p>
+        ${status === "confirmed" ? `
+          <p>Please arrive 15 minutes before your estimated appointment time.</p>
+          <p>If you need to reschedule or cancel your appointment, please do so at least 24 hours in advance.</p>
+        ` : status === "cancelled" ? `
+          <div style="background-color: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb;">
+            <h4 style="color: #4f46e5; margin-top: 0;">Need Immediate Assistance?</h4>
+            <p style="margin: 10px 0;">Our patient care team is here to help:</p>
+            <p style="margin: 5px 0;">📞 Call: (555) 123-4567</p>
+            <p style="margin: 5px 0;">📧 Email: care@carelink.com</p>
+            <p style="margin: 5px 0;">💬 Chat: Available 24/7 on our website</p>
+          </div>
+          <p style="margin-top: 20px;">Thank you for your understanding and continued trust in CareLink Hospital.</p>
+        ` : status === "completed" ? `
+          <p>Thank you for choosing CareLink Hospital. We hope you had a good experience.</p>
+          <p>Don't forget to rate your experience and schedule follow-up appointments if needed.</p>
+        ` : ''}
+      </div>
+      <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+        <img src="https://carelink-hospital.com/logo.png" alt="CareLink Hospital" style="max-width: 150px; margin-bottom: 10px;">
+        <p style="color: #6b7280; font-size: 12px;">CareLink Hospital - Caring for you and your family</p>
       </div>
     </div>
   `;
 
   return sendEmail({
     to: userEmail,
-    subject: "Appointment Confirmation - CareLink Hospital",
+    subject: emailSubject,
     html: emailTemplate,
   });
 };
@@ -139,7 +224,8 @@ export const sendAppointmentReminder = async (
   const {
     doctorName,
     date,
-    time,
+    queueNumber,
+    estimatedTime,
     location = "Main Hospital Branch",
   } = appointmentDetails;
 
@@ -154,11 +240,12 @@ export const sendAppointmentReminder = async (
           <p style="margin: 10px 0;"><strong>Date:</strong> ${new Date(
             date
           ).toLocaleDateString()}</p>
-          <p style="margin: 10px 0;"><strong>Time:</strong> ${time}</p>
+          <p style="margin: 10px 0;"><strong>Estimated Time:</strong> ${estimatedTime || 'TBD'}</p>
+          <p style="margin: 10px 0;"><strong>Queue Number:</strong> #${queueNumber}</p>
           <p style="margin: 10px 0;"><strong>Location:</strong> ${location}</p>
         </div>
         <div style="background-color: #fff; padding: 15px; border-left: 4px solid #dc2626; margin: 20px 0;">
-          <p style="color: #475569; margin: 0;">Please arrive 15 minutes before your scheduled appointment time.</p>
+          <p style="color: #475569; margin: 0;">Please arrive 15 minutes before your estimated appointment time.</p>
         </div>
       </div>
       <div style="text-align: center; margin-top: 20px; color: #64748b;">
@@ -345,7 +432,8 @@ export const checkAndSendReminders = async () => {
       await sendAppointmentReminder(appointment.userId.email, {
         doctorName: appointment.doctorId.name,
         date: appointment.date,
-        time: appointment.time,
+        queueNumber: appointment.queueNumber,
+        estimatedTime: appointment.estimatedTime,
         location: appointment.doctorId.location,
       });
     }
@@ -452,3 +540,131 @@ export const sendShippingUpdate = async (userEmail, shippingDetails) => {
     html: emailTemplate,
   });
 };
+
+export const sendDoctorRegistrationEmail = async (doctorEmail, temporaryPassword) => {
+  const emailTemplate = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+      <div style="background-color: #f0f9ff; padding: 20px; border-radius: 8px; text-align: center;">
+        <h2 style="color: #2563eb;">Welcome to CareLink Hospital</h2>
+        <p style="color: #475569; font-size: 16px;">Your Doctor Account Has Been Created</p>
+      </div>
+      
+      <div style="background-color: #ffffff; padding: 30px; border-radius: 8px; margin: 20px 0; border: 1px solid #e5e7eb;">
+        <p style="color: #1f2937;">Dear Doctor,</p>
+        
+        <p style="color: #4b5563;">Your account has been successfully created in the CareLink Hospital system. Please follow these steps to activate your account:</p>
+        
+        <div style="background-color: #f9fafb; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #e5e7eb;">
+          <h3 style="color: #2563eb; margin-bottom: 15px;">Temporary Password</h3>
+          <p style="font-family: monospace; font-size: 18px; color: #111827; background-color: #f3f4f6; padding: 10px; border-radius: 5px; text-align: center;">
+            ${temporaryPassword}
+          </p>
+        </div>
+        
+        <div style="margin: 20px 0;">
+          <h4 style="color: #2563eb;">Account Activation Steps:</h4>
+          <ol style="color: #4b5563; padding-left: 20px;">
+            <li>Visit the CareLink Hospital Doctor Portal</li>
+            <li>Enter your email address: <strong>${doctorEmail}</strong></li>
+            <li>Use the temporary password provided above</li>
+            <li>You will be prompted to change your password immediately</li>
+          </ol>
+        </div>
+        
+        <p style="color: #6b7280; font-size: 14px;">
+          <strong>Note:</strong> This temporary password is valid for 24 hours. Please change it immediately upon first login.
+        </p>
+      </div>
+      
+      <div style="text-align: center; color: #6b7280; font-size: 12px;">
+        <p>© ${new Date().getFullYear()} CareLink Hospital. All rights reserved.</p>
+        <p>If you did not create this account, please contact our support team.</p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to: doctorEmail,
+    subject: "CareLink Hospital - Doctor Account Registration",
+    html: emailTemplate,
+  });
+};
+
+export const sendDeliveryPersonnelRegistrationEmail = async (deliveryEmail, temporaryPassword, personnelDetails) => {
+  const { name, employeeId, vehicleType, vehicleNumber, assignedArea } = personnelDetails;
+
+  const emailTemplate = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+      <div style="background-color: #f0f9ff; padding: 20px; border-radius: 8px; text-align: center;">
+        <h2 style="color: #2563eb;">Welcome to CareLink Delivery Service</h2>
+        <p style="color: #475569; font-size: 16px;">Your Delivery Personnel Account Has Been Created</p>
+      </div>
+      
+      <div style="background-color: #ffffff; padding: 30px; border-radius: 8px; margin: 20px 0; border: 1px solid #e5e7eb;">
+        <p style="color: #1f2937;">Dear ${name},</p>
+        
+        <p style="color: #4b5563;">Your delivery personnel account has been successfully created in the CareLink system. Please follow these steps to activate your account:</p>
+        
+        <div style="background-color: #f9fafb; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #e5e7eb;">
+          <h3 style="color: #2563eb; margin-bottom: 15px;">Your Account Details</h3>
+          <div style="margin: 10px 0;">
+            <strong>Employee ID:</strong> ${employeeId}
+          </div>
+          <div style="margin: 10px 0;">
+            <strong>Vehicle:</strong> ${vehicleType} - ${vehicleNumber}
+          </div>
+          <div style="margin: 10px 0;">
+            <strong>Assigned Area:</strong> ${assignedArea}
+          </div>
+        </div>
+        
+        <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #f59e0b;">
+          <h3 style="color: #d97706; margin-bottom: 15px;">Temporary Password</h3>
+          <p style="font-family: monospace; font-size: 18px; color: #111827; background-color: #f3f4f6; padding: 10px; border-radius: 5px; text-align: center;">
+            ${temporaryPassword}
+          </p>
+        </div>
+        
+        <div style="margin: 20px 0;">
+          <h4 style="color: #2563eb;">Account Activation Steps:</h4>
+          <ol style="color: #4b5563; padding-left: 20px;">
+            <li>Visit the CareLink Delivery Service Portal</li>
+            <li>Enter your email address: <strong>${deliveryEmail}</strong></li>
+            <li>Use the temporary password provided above</li>
+            <li>You will be prompted to change your password immediately</li>
+            <li>Complete your profile setup</li>
+          </ol>
+        </div>
+        
+        <div style="background-color: #ecfdf5; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #10b981;">
+          <h4 style="color: #059669; margin-bottom: 10px;">🚚 Ready to Start Delivering?</h4>
+          <p style="color: #065f46; margin: 0;">
+            Once you log in, you'll be able to:
+          </p>
+          <ul style="color: #065f46; margin: 10px 0; padding-left: 20px;">
+            <li>View assigned orders</li>
+            <li>Update delivery status</li>
+            <li>Track your performance</li>
+            <li>Manage your schedule</li>
+          </ul>
+        </div>
+        
+        <p style="color: #6b7280; font-size: 14px;">
+          <strong>Note:</strong> This temporary password is valid for 24 hours. Please change it immediately upon first login for security.
+        </p>
+      </div>
+      
+      <div style="text-align: center; color: #6b7280; font-size: 12px;">
+        <p>© ${new Date().getFullYear()} CareLink Hospital. All rights reserved.</p>
+        <p>If you did not create this account, please contact our support team immediately.</p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to: deliveryEmail,
+    subject: "CareLink Delivery Service - Account Registration",
+    html: emailTemplate,
+  });
+};
+  

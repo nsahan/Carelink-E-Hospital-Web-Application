@@ -2,43 +2,34 @@ import Appointment from "../models/appointment.js";
 import Doctor from "../models/doctor.js";
 import User from "../models/user.js";
 import { sendAppointmentConfirmation } from "../utils/emailService.js";
+import mongoose from "mongoose";
 
-// Create new appointment
+// Helper function to calculate estimated time based on queue number
+const calculateEstimatedTime = (queueNumber, doctorStartTime, consultationDuration = 30) => {
+  const [hours, minutes] = doctorStartTime.split(':').map(Number);
+  const totalMinutes = hours * 60 + minutes + (queueNumber - 1) * consultationDuration;
+  const estimatedHours = Math.floor(totalMinutes / 60);
+  const estimatedMinutes = totalMinutes % 60;
+  return `${estimatedHours.toString().padStart(2, '0')}:${estimatedMinutes.toString().padStart(2, '0')}`;
+};
+
+// Create new appointment with queue system
 const createAppointment = async (req, res) => {
   try {
-    const { doctorId, date, time } = req.body;
+    const { doctorId, date } = req.body;
     const userId = req.user.id;
 
-    // Get both doctor and user details for the email
     const [doctor, user] = await Promise.all([
       Doctor.findById(doctorId),
       User.findById(userId),
     ]);
 
-    if (!doctor || doctor.available <= 0) {
-      return res.status(400).json({
-        message: "No appointments available for this doctor",
-      });
+    if (!doctor) {
+      return res.status(400).json({ message: "Doctor not found" });
     }
 
     if (!user) {
-      return res.status(404).json({
-        message: "User not found",
-      });
-    }
-
-    // Check if appointment slot is available
-    const existingAppointment = await Appointment.findOne({
-      doctorId,
-      date,
-      time,
-      status: { $ne: "cancelled" },
-    });
-
-    if (existingAppointment) {
-      return res
-        .status(400)
-        .json({ message: "This time slot is already booked" });
+      return res.status(404).json({ message: "User not found" });
     }
 
     // Check if user already has an appointment on the same day
@@ -54,34 +45,71 @@ const createAppointment = async (req, res) => {
       });
     }
 
+    // Get the next queue number for this doctor on this date
+    const lastAppointment = await Appointment.findOne({
+      doctorId,
+      date,
+      status: { $ne: "cancelled" },
+    }).sort({ queueNumber: -1 });
+
+    const queueNumber = lastAppointment ? lastAppointment.queueNumber + 1 : 1;
+
+    // Calculate estimated time based on queue number
+    const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'long' });
+    const dayAvailability = doctor.availability?.find(day => day.day === dayOfWeek);
+    
+    if (!dayAvailability || !dayAvailability.isAvailable || !dayAvailability.timeSlots?.length) {
+      return res.status(400).json({ message: "Doctor is not available on this date" });
+    }
+
+    // Use the first time slot's start time as the base time
+    const baseStartTime = dayAvailability.timeSlots[0].startTime;
+    const consultationDuration = 30; // 30 minutes per consultation
+    const estimatedTime = calculateEstimatedTime(queueNumber, baseStartTime, consultationDuration);
+
+    // Check if estimated time exceeds the last time slot
+    const lastTimeSlot = dayAvailability.timeSlots[dayAvailability.timeSlots.length - 1];
+    const [estimatedHours, estimatedMinutes] = estimatedTime.split(':').map(Number);
+    const [lastEndHours, lastEndMinutes] = lastTimeSlot.endTime.split(':').map(Number);
+    
+    const estimatedTotalMinutes = estimatedHours * 60 + estimatedMinutes;
+    const lastEndTotalMinutes = lastEndHours * 60 + lastEndMinutes;
+    
+    if (estimatedTotalMinutes >= lastEndTotalMinutes) {
+      return res.status(400).json({ 
+        message: "No more appointments available for this date. Please try another date." 
+      });
+    }
+
     const appointment = new Appointment({
       doctorId,
       userId,
       date,
-      time,
+      queueNumber,
+      estimatedTime,
       status: "pending",
+      consultationDuration,
     });
 
     const savedAppointment = await appointment.save();
-    await Doctor.findByIdAndUpdate(doctorId, { $inc: { available: -1 } });
 
-    // Send confirmation email
     try {
       await sendAppointmentConfirmation(user.email, {
         doctorName: doctor.name,
         date,
-        time,
-        location: doctor.location || "Main Hospital Branch",
+        queueNumber,
+        estimatedTime,
+        location: doctor.address || "Main Hospital Branch",
       });
     } catch (emailError) {
       console.error("Failed to send confirmation email:", emailError);
-      // Don't return error response here, as appointment was still created successfully
     }
 
     res.status(201).json({
       message: "Appointment booked successfully",
       appointment: savedAppointment,
-      availableSlots: doctor.available - 1,
+      queueNumber,
+      estimatedTime,
     });
   } catch (error) {
     console.error("Appointment booking error:", error);
@@ -103,7 +131,7 @@ const getDoctorAppointments = async (req, res) => {
 
     const appointments = await Appointment.find({ doctorId })
       .populate("userId", "name email phone")
-      .sort({ date: -1, time: -1 });
+      .sort({ date: -1, queueNumber: 1 });
 
     res.status(200).json({
       success: true,
@@ -175,7 +203,7 @@ const updateAppointmentStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    if (!["pending", "confirmed", "cancelled"].includes(status)) {
+    if (!["pending", "confirmed", "cancelled", "completed"].includes(status)) {
       return res.status(400).json({
         success: false,
         message: "Invalid status",
@@ -197,13 +225,40 @@ const updateAppointmentStatus = async (req, res) => {
       });
     }
 
-    // Send email confirmation if appointment is confirmed
-    if (status === "confirmed") {
-      await sendAppointmentConfirmation(appointment.userId.email, {
-        doctorName: appointment.doctorId.name,
-        date: appointment.date,
-        time: appointment.time,
-      });
+    // Send appropriate email based on status
+    try {
+      if (status === "confirmed") {
+        await sendAppointmentConfirmation(appointment.userId.email, {
+          doctorName: appointment.doctorId.name,
+          date: appointment.date,
+          queueNumber: appointment.queueNumber,
+          estimatedTime: appointment.estimatedTime,
+          location: appointment.doctorId.location || "Main Hospital Branch",
+        });
+      } else if (status === "cancelled") {
+        await sendAppointmentConfirmation(appointment.userId.email, {
+          doctorName: appointment.doctorId.name,
+          date: appointment.date,
+          queueNumber: appointment.queueNumber,
+          estimatedTime: appointment.estimatedTime,
+          status: "cancelled",
+          message:
+            "Your appointment has been cancelled by the doctor. Please reschedule if needed.",
+        });
+      } else if (status === "completed") {
+        await sendAppointmentConfirmation(appointment.userId.email, {
+          doctorName: appointment.doctorId.name,
+          date: appointment.date,
+          queueNumber: appointment.queueNumber,
+          estimatedTime: appointment.estimatedTime,
+          status: "completed",
+          message:
+            "Thank you for visiting. Please rate your experience and book follow-up if needed.",
+        });
+      }
+    } catch (emailError) {
+      console.error("Failed to send email notification:", emailError);
+      // Don't return error as appointment status was still updated
     }
 
     res.status(200).json({
@@ -234,13 +289,9 @@ const cancelAppointment = async (req, res) => {
         .json({ message: "Not authorized to cancel this appointment" });
     }
 
-    // Increment doctor's available slots
-    await Doctor.findByIdAndUpdate(appointment.doctorId, {
-      $inc: { available: 1 },
-    });
-
-    // Delete the appointment
-    await Appointment.findByIdAndDelete(req.params.id);
+    // Update appointment status to cancelled instead of deleting
+    appointment.status = "cancelled";
+    await appointment.save();
 
     res.status(200).json({ message: "Appointment cancelled successfully" });
   } catch (error) {
@@ -320,6 +371,90 @@ const getDoctorDashboardStats = async (req, res) => {
   }
 };
 
+// Get queue information for a specific date
+const getQueueInfo = async (req, res) => {
+  try {
+    const { doctorId, date } = req.params;
+
+    // Validate doctorId
+    if (!mongoose.isValidObjectId(doctorId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Doctor ID",
+      });
+    }
+
+    // Validate date
+    const parsedDate = new Date(date);
+    if (isNaN(parsedDate)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid date format",
+      });
+    }
+
+    const doctor = await Doctor.findById(doctorId);
+    if (!doctor) {
+      return res.status(400).json({
+        success: false,
+        message: "Doctor not found",
+      });
+    }
+
+    // Get day availability
+    const dayName = parsedDate.toLocaleDateString("en-US", { weekday: "long" });
+    const dayAvailability = doctor.availability?.find(day => day.day === dayName);
+
+    if (!dayAvailability || !dayAvailability.isAvailable) {
+      return res.status(200).json({
+        success: true,
+        availableSlots: 0,
+        totalBooked: 0,
+        nextQueueNumber: 1,
+        isAvailable: false,
+      });
+    }
+
+    // Calculate total available slots for the day
+    let totalAvailableSlots = 0;
+    dayAvailability.timeSlots.forEach(slot => {
+      if (slot.startTime && slot.endTime && slot.maxPatients) {
+        totalAvailableSlots += slot.maxPatients;
+      }
+    });
+
+    // Get booked appointments for the date
+    const bookedAppointments = await Appointment.find({
+      doctorId,
+      date: parsedDate,
+      status: { $ne: "cancelled" },
+    }).sort({ queueNumber: 1 });
+
+    const totalBooked = bookedAppointments.length;
+    const nextQueueNumber = totalBooked + 1;
+    const availableSlots = Math.max(0, totalAvailableSlots - totalBooked);
+
+    res.status(200).json({
+      success: true,
+      availableSlots,
+      totalBooked,
+      nextQueueNumber,
+      isAvailable: availableSlots > 0,
+      bookedAppointments: bookedAppointments.map(apt => ({
+        queueNumber: apt.queueNumber,
+        status: apt.status,
+      })),
+    });
+  } catch (error) {
+    console.error("Error fetching queue info:", error.stack);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching queue information",
+      error: error.message,
+    });
+  }
+};
+
 // Export all controllers
 export {
   createAppointment,
@@ -329,4 +464,6 @@ export {
   getAllAppointments,
   cancelAppointment,
   getDoctorDashboardStats,
+  getQueueInfo,
 };
+

@@ -1,6 +1,11 @@
 import express from "express";
-import { protect, isAdmin } from "../middleware/authMiddleware.js";
+import {
+  protect,
+  isAdmin,
+  protectWithUser,
+} from "../middleware/authMiddleware.js";
 import userModel from "../models/user.js";
+import { generateBusinessReport } from "../controllers/reportController.js";
 
 const router = express.Router();
 
@@ -25,5 +30,8 @@ router.get("/users", protect, isAdmin, async (req, res) => {
     });
   }
 });
+
+// Report generation route (no auth required)
+router.post("/reports/business", generateBusinessReport);
 
 export default router;

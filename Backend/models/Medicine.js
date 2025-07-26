@@ -6,12 +6,25 @@ const MedicineSchema = new mongoose.Schema(
     description: { type: String, required: true },
     genericName: { type: String, trim: true },
     price: { type: Number, required: true, min: 0 },
-    stock: { type: Number, required: true, min: 0, default: 0 },
+    stock: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
     category: { type: String, required: true, trim: true },
     expiryDate: { type: Date, required: true },
-    reorderLevel: { type: Number, default: 10 },
-    reorderQuantity: { type: Number, default: 50 },
-    autoReorder: { type: Boolean, default: false },
+    reorderLevel: {
+      type: Number,
+      default: 10,
+    },
+    reorderQuantity: {
+      type: Number,
+      default: 50,
+    },
+    autoReorder: {
+      type: Boolean,
+      default: false,
+    },
     lastRestocked: { type: Date },
     lastReorderRequest: { type: Date },
     lastNotificationSent: { type: Date },
@@ -39,6 +52,14 @@ const MedicineSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Add middleware to prevent stock from going below 0
+MedicineSchema.pre("save", function (next) {
+  if (this.stock < 0) {
+    this.stock = 0;
+  }
+  next();
+});
 
 const Medicine =
   mongoose.models.Medicine || mongoose.model("Medicine", MedicineSchema);

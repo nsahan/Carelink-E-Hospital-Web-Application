@@ -12,6 +12,7 @@ import Appointments from './pages/Appointments';
 import Patients from './pages/Patients';
 import Medicines from './pages/Medicines';
 import AddMedicine from './pages/AddMedicine';
+import SupplierManagement from './pages/SupplierManagement';
 import Prescriptions from './pages/Prescriptions';
 import Billing from './pages/Billing';
 import Settings from './pages/Settings';
@@ -21,9 +22,10 @@ import { ThemeProviderWrapper } from './theme/ThemeContext';
 import DoctorRoute from './components/DoctorRoute';
 import MedicalTerms from './pages/MedicalTerms';
 import EditAbout from './pages/EditAbout';
+import HospitalPricing from './pages/HospitalPricing';
 
 const App = () => {
-  const {atoken} = useContext(AdminContext)
+  const { atoken } = useContext(AdminContext)
   const dtoken = localStorage.getItem('dtoken');
 
   // Show login if neither token exists
@@ -42,13 +44,13 @@ const App = () => {
       <div className='bg-[#F8F9FD]'>
         <ToastContainer />
         <Routes>
-          <Route 
-            path="/doctor/dashboard" 
+          <Route
+            path="/doctor/dashboard"
             element={
               <DoctorRoute>
                 <DoctorDashboard />
               </DoctorRoute>
-            } 
+            }
           />
           <Route path="*" element={<Navigate to="/doctor/dashboard" />} />
         </Routes>
@@ -62,20 +64,22 @@ const App = () => {
       <div className='bg-[#F8F9FD]'>
         <ToastContainer />
         <Navbar />
-        <Sidebar/>
+        <Sidebar />
         <Routes>
-          <Route path="/admin/dashboard" element={<Dashboard/>} />
-          <Route path="/admin/doctors" element={<Doctors/>} />
-          <Route path="/admin/add-doctor" element={<AddDoctor/>} />
-          <Route path="/admin/appointments" element={<Appointments/>} />
-          <Route path="/admin/patients" element={<Patients/>} />
-          <Route path="/admin/medicines" element={<Medicines/>} />
-          <Route path="/admin/add-medicine" element={<AddMedicine/>} />
-          <Route path="/admin/medical-terms" element={<MedicalTerms/>} />
-          <Route path="/admin/prescriptions" element={<Prescriptions/>} />
-          <Route path="/admin/billing" element={<Billing/>} />
-          <Route path="/admin/settings" element={<Settings/>} />
+          <Route path="/admin/dashboard" element={<Dashboard />} />
+          <Route path="/admin/doctors" element={<Doctors />} />
+          <Route path="/admin/add-doctor" element={<AddDoctor />} />
+          <Route path="/admin/appointments" element={<Appointments />} />
+          <Route path="/admin/patients" element={<Patients />} />
+          <Route path="/admin/medicines" element={<Medicines />} />
+          <Route path="/admin/add-medicine" element={<AddMedicine />} />
+          <Route path="/admin/suppliers" element={<SupplierManagement />} />
+          <Route path="/admin/medical-terms" element={<MedicalTerms />} />
+          <Route path="/admin/prescriptions" element={<Prescriptions />} />
+          <Route path="/admin/billing" element={<Billing />} />
+          <Route path="/admin/settings" element={<Settings />} />
           <Route path="/admin/edit-about" element={<EditAbout />} />
+          <Route path="/admin/hospital-pricing" element={<HospitalPricing />} />
           <Route path="*" element={<Navigate to="/admin/dashboard" />} />
         </Routes>
       </div>

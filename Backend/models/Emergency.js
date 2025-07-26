@@ -24,6 +24,20 @@ const emergencySchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  acknowledgedAt: {
+    type: Date,
+  },
+  completed: {
+    type: Boolean,
+    default: false,
+  },
+  completedAt: {
+    type: Date,
+  },
+  completionNotes: {
+    type: String,
+    default: "",
+  },
 });
 
 export default mongoose.model("Emergency", emergencySchema);

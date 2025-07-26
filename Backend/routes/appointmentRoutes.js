@@ -7,6 +7,7 @@ import {
   getAllAppointments,
   cancelAppointment,
   getDoctorDashboardStats,
+  getQueueInfo,
 } from "../controllers/appointmentController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -24,5 +25,6 @@ router.delete("/:id", protect, cancelAppointment);
 
 // Admin routes
 router.get("/all", protect, getAllAppointments);
+router.get("/queue/:doctorId/:date", protect, getQueueInfo); // New queue route
 
 export default router;
